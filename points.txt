@@ -1,0 +1,8 @@
+remove 
+Total_Profit_bill,
+actionbill
+
+add query parms
+
+
+
