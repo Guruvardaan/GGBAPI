@@ -22,22 +22,24 @@ class InventoryReportController extends Controller
         $inventories = $inventories_data->get();
         
         foreach($inventories as $inventory) {
-            $vendor_data = $this->get_vendor_detail($inventory->idproduct_master);
-            $expiry_data = $this->get_expire_report($inventory->idproduct_master);
-            $product_data = $this->get_product_data($inventory->idproduct_master);
-            // dd($product_data);
-            $expiry_data->amount = $expiry_data->mrp * $expiry_data->quantity;
-            $inventory->selled_product = $vendor_data->quantity;
-            $inventory->remaining_quanity = $inventory->total_quantity - $vendor_data->quantity;
-            $inventory->expire = $vendor_data->expiry;
-            $inventory->expiry_report = $expiry_data;
-            $inventory->product_name = $product_data->name;
-            $inventory->product_barcode = $product_data->barcode;
-            $inventory->category = $product_data->category_name;
-            $inventory->sub_category = $product_data->sub_category_name;
-            $inventory->sub_sub_category = $product_data->sub_sub_category_name;
-            $inventory->brands = $product_data->brands_name;
-        }                    
+            if(!empty($inventory->idproduct_master)) {
+                $vendor_data = $this->get_vendor_detail($inventory->idproduct_master);
+                $expiry_data = $this->get_expire_report($inventory->idproduct_master);
+                $product_data = $this->get_product_data($inventory->idproduct_master);
+            
+                $expiry_data->amount = $expiry_data->mrp * $expiry_data->quantity;
+                $inventory->selled_product = $vendor_data->quantity;
+                $inventory->remaining_quanity = $inventory->total_quantity - $vendor_data->quantity;
+                $inventory->expire = $vendor_data->expiry;
+                $inventory->expiry_report = $expiry_data;
+                $inventory->product_name = $product_data->name;
+                $inventory->product_barcode = $product_data->barcode;
+                $inventory->category = $product_data->category_name;
+                $inventory->sub_category = $product_data->sub_category_name;
+                $inventory->sub_sub_category = $product_data->sub_sub_category_name;
+                $inventory->brands = $product_data->brands_name;
+            }
+        }              
                             
         // foreach($inventories as $inventory) {
         //     $productData = $this->get_product_name_and_barcode($inventory->idproduct_master);
