@@ -34,25 +34,28 @@ class LogsController extends Controller
                         $checkVendorDetails = VendorPurchasesDetail::where('idvendor_purchases', $VendorPurDet['idvendor_purchases'])
                                             ->where('idproduct_master', $VendorPurDet['idproduct_master'])
                                             ->first();
-                        if ($VendorPurDet['mrp'] != $checkVendorDetails->mrp || $VendorPurDet['selling_price'] != $checkVendorDetails->selling_price || $VendorPurDet['unit_purchase_price'] != $checkVendorDetails->unit_purchase_price) {
-                            DB::table('vendor_purchases_detail_logs')->insert([
-                                'idvendor' => $vendorID,
-                                'idvendor_purchases' => $VendorPurDet['idvendor_purchases'],
-                                'idproduct_master' => $VendorPurDet['idproduct_master'],
-                                'update_mrp' => $VendorPurDet['mrp'],
-                                'update_product' => $VendorPurDet['product'],
-                                'update_copartner' => $VendorPurDet['copartner'],
-                                'update_land' => $VendorPurDet['land'],
-                                'update_selling_price' => $VendorPurDet['selling_price'],
-                                'update-hsn' => $VendorPurDet['hsn'],
-                                'update_unit_purchase_price' => $VendorPurDet['unit_purchase_price'],
-                                'update-expiry' => $VendorPurDet['expiry'],
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                                'created_by' => $user_id,
-                                'updated_by' => $user_id,
-                            ]);
+                        if($checkVendorDetails != null){
+                            if ($VendorPurDet['mrp'] != $checkVendorDetails->mrp || $VendorPurDet['selling_price'] != $checkVendorDetails->selling_price || $VendorPurDet['unit_purchase_price'] != $checkVendorDetails->unit_purchase_price) {
+                                DB::table('vendor_purchases_detail_logs')->insert([
+                                    'idvendor' => $vendorID,
+                                    'idvendor_purchases' => $VendorPurDet['idvendor_purchases'],
+                                    'idproduct_master' => $VendorPurDet['idproduct_master'],
+                                    'update_mrp' => $VendorPurDet['mrp'],
+                                    'update_product' => $VendorPurDet['product'],
+                                    'update_copartner' => $VendorPurDet['copartner'],
+                                    'update_land' => $VendorPurDet['land'],
+                                    'update_selling_price' => $VendorPurDet['selling_price'],
+                                    'update-hsn' => $VendorPurDet['hsn'],
+                                    'update_unit_purchase_price' => $VendorPurDet['unit_purchase_price'],
+                                    'update-expiry' => $VendorPurDet['expiry'],
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                    'created_by' => $user_id,
+                                    'updated_by' => $user_id,
+                                ]);
+                            }
                         }
+                        
                     }
                 DB::commit();
                 return response()->json(['message' => 'Data successfully inserted'], 200);
