@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderDetailController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\LogsController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -37,3 +38,7 @@ Route::get('/orderDetail',  [OrderDetailController::class, 'getOrderData']);
 Route::post('get-token', [AuthController::class, 'getToken']);
 
 Route::post('/storeInventory', [InventoryController::class, 'StoreInventory']);
+Route::post('/purchaseDetailsLogs', [LogsController::class, 'PurchaseDetailsLogs']);
+
+Route::post('/transferInventory', [InventoryController::class, 'TransferInventory']);
+Route::post('/conformTransferInventory', [InventoryController::class, 'conformTransferInventory']);
