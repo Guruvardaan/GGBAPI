@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\ProductReportController;
 use App\Http\Controllers\API\InventoryReportController;
 use App\Http\Controllers\API\WarehouseReportController;
+use App\Http\Controllers\API\SystemReportController;
 
 
 /*
@@ -24,3 +25,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::post('product-report', [ProductReportController::class, 'get_product_report']);
 Route::post('inventory-report', [InventoryReportController::class, 'get_inventory_report']);
 Route::post('warehouse-report', [WarehouseReportController::class, 'get_warehouse_report']);
+Route::post('inventory/expried-and-expiring-report', [InventoryReportController::class, 'expried_and_expiring_inventory']);
+Route::post('performance-report', [SystemReportController::class, 'get_performance_report']);
