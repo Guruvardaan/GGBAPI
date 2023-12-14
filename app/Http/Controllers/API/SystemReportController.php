@@ -21,8 +21,10 @@ class SystemReportController extends Controller
                                     ->orderBy('total_sales', 'asc')
                                     ->first();  
         $get_year_over_year_growth = $this->get_year_over_year_growth();
-        $data['get_best_seller'] =  $get_best_seller;
-        $data['get_worst_seller'] = $get_worst_seller;
+        $data['get_best_seller'] =  $this->get_seller_detail($get_best_seller->idvendor);
+        $data['get_best_seller']->total_sales = $get_best_seller->total_sales;
+        $data['get_worst_seller'] = $this->get_seller_detail($get_worst_seller->idvendor);
+        $data['get_worst_seller']->total_sales = $get_worst_seller->total_sales;
         $data['get_year_over_year_growth'] = $get_year_over_year_growth;               
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);                                   
     }
@@ -41,5 +43,14 @@ class SystemReportController extends Controller
         $year_over_year_growth['percentage'] = !empty($get_previous_year_data->total_sales) ? $total_salled_quantity/($get_previous_year_data->total_sales * 100) : 100;
         $year_over_year_growth['total_salled_quantity'] = $total_salled_quantity;
         return $year_over_year_growth;            
+    }
+
+    public function get_seller_detail($id) 
+    {
+       $seller_data =  DB::table('vendors')
+                       ->select('name', 'phone')
+                       ->where('id', $id)
+                       ->first();
+       return $seller_data;                
     }
 }
