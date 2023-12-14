@@ -48,7 +48,7 @@ class SystemReportController extends Controller
     public function get_seller_detail($id) 
     {
        $seller_data =  DB::table('vendors')
-                       ->select('name', 'phone')
+                       ->select('id As idvendor','name', 'phone')
                        ->where('id', $id)
                        ->first();
        return $seller_data;                
