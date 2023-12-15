@@ -139,15 +139,15 @@ class InventoryReportController extends Controller
             $y_value_expiring = 0;
             if(!empty($expired_data)) {
                 $remaining_quanity = $inventory->total_quantity - $expired_data->quantity;
-                $inventory->expried_amount = $remaining_quanity * $expired_data->mrp;
-                $x_value_expried = $expired_data->mrp;
-                $y_value_expried = $remaining_quanity;
+                $inventory->expried_amount = abs($remaining_quanity * $expired_data->mrp);
+                $x_value_expried = abs($expired_data->mrp);
+                $y_value_expried = abs($remaining_quanity);
             }
             if(!empty($expiring_data)) {
                 $remaining_quanity = $inventory->total_quantity - $expiring_data->quantity;
-                $inventory->expiring_in_30days_amount = $remaining_quanity * $expiring_data->mrp;
-                $x_value_expiring = $remaining_quanity;
-                $y_value_expiring = $expiring_data->mrp;
+                $inventory->expiring_in_30days_amount = abs($remaining_quanity * $expiring_data->mrp);
+                $x_value_expiring = abs($remaining_quanity);
+                $y_value_expiring = abs($expiring_data->mrp);
             }
             
             $inventory->expired_graph_data = ['x_value' => $x_value_expried, 'y_value' => $y_value_expried];
