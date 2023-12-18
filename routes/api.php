@@ -29,3 +29,4 @@ Route::post('inventory/expried-and-expiring-report', [InventoryReportController:
 Route::post('performance-report', [SystemReportController::class, 'get_performance_report']);
 Route::post('inventory-profitability-report', [SystemReportController::class, 'get_inventory_profitability_report']);
 Route::post('inventory-value-report', [SystemReportController::class, 'get_value_report']);
+Route::post('stock-levels-report', [SystemReportController::class, 'get_stock_levels_report']);

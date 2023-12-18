@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use  Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class SystemReportController extends Controller
 {
@@ -163,4 +164,60 @@ class SystemReportController extends Controller
         return !empty($warehouse) ? $warehouse->name : ''; 
     }
 
+    public function get_stock_levels_report(Request $request)
+    {
+        $data = DB::table('inventory')
+                           ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                           ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
+                           ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
+                           ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse');
+                                    
+        if(!empty($request->idstore_warehouse)) {
+            $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
+        }                        
+        $stock_levels_report_data = $data->get();
+        foreach($stock_levels_report_data as $key => $product) {
+            $selled_products = $this->get_selled_quantity($product->idproduct_master);
+            $remaining_product = 0;
+            foreach($selled_products as $selled_product) {
+                if($product->idproduct_master === $selled_product->idproduct_master) {
+                    if($product->idstore_warehouse === $selled_product->idstore_warehouse) {
+                        $remaining_product = $product->total_quantity - $selled_product->total_quantity;
+                        $product->remaining_product = abs($remaining_product);
+                        break;
+                    } else {
+                        $remaining_product = $product->total_quantity;
+                        $product->remaining_product = abs($remaining_product);
+                    }
+                }
+            }
+        }
+        
+        $data = [];
+        $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
+        $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
+
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);                            
+    }
+
+    public function get_selled_quantity($id)
+    {
+        $selled_quantity = DB::table('vendor_purchases')
+                                        ->rightJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases') 
+                                        ->select('vendor_purchases.idstore_warehouse', 'vendor_purchases_detail.idproduct_master', DB::raw('sum(vendor_purchases_detail.quantity) as total_quantity'))
+                                        ->groupBy('vendor_purchases.idstore_warehouse', 'vendor_purchases_detail.idproduct_master')
+                                        ->where('vendor_purchases_detail.idproduct_master', $id)
+                                        ->get();  
+        // dd($selled_quantity);
+        return $selled_quantity;                                
+    }
+
 }
+
+// $criticalProducts = Product::where('quantity', '<=', 10)->get();
+// $replenishmentProducts = Product::where('quantity', '=', 0)->get();
+
+// return response()->json([
+//     'critical_products' => $criticalProducts,
+//     'replenishment_products' => $replenishmentProducts,
+// ]);    
