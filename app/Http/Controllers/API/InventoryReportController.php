@@ -263,9 +263,4 @@ class InventoryReportController extends Controller
         $year_over_year_growth['total_salled_quantity'] = $total_salled_quantity;
         return $year_over_year_growth;            
     }
-
-    public function get_seller_detail($id) 
-    {
-
-    }
 }
