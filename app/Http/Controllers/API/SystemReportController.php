@@ -128,7 +128,6 @@ class SystemReportController extends Controller
                 $transformedData[$key] = [
                     'idstore_warehouse' => $idstore_warehouse,
                     'warehouse_name' => $warehouse_name,
-                    // 'trending_value' => $trending_value,
                     'products' => [],
                 ];
             }
@@ -208,16 +207,59 @@ class SystemReportController extends Controller
                                         ->groupBy('vendor_purchases.idstore_warehouse', 'vendor_purchases_detail.idproduct_master')
                                         ->where('vendor_purchases_detail.idproduct_master', $id)
                                         ->get();  
-        // dd($selled_quantity);
         return $selled_quantity;                                
     }
 
+    public function inventory_forecasting_report(Request $request)
+    {
+        $start_date =  !empty($request->start_date) ? $request->start_date : null;
+        $end_date = !empty($request->end_date)? $request->end_date :  null;
+
+        $data = DB::table('inventory')
+                    ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                    ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'inventory.created_at As Date', DB::raw('sum(inventory.quantity) as selled_quantity'))
+                    ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'inventory.created_at');
+
+        if(!empty($start_date) && !empty($end_date)) {
+            $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
+        }         
+        if(!empty($request->idstore_warehouse)) {
+            $data->where('idstore_warehouse', $request->idstore_warehouse);
+        }                       
+        
+        $inventory_forecasting_report = $data->get();
+        $inventory_forecasting_report = $this->forecasting_data_formatting($inventory_forecasting_report);
+
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventory_forecasting_report], 200);                                
+    }              
+    
+    public function forecasting_data_formatting($data)
+    {
+        $transformedData = [];
+
+        foreach ($data as $item) {
+            $idstore_warehouse = $item->idstore_warehouse;
+            $warehouse_name = $this->get_warehouse_name($idstore_warehouse);
+            
+            $key = "{$item->idstore_warehouse}";
+            if (!isset($transformedData[$key])) {
+                $transformedData[$key] = [
+                    'idstore_warehouse' => $idstore_warehouse,
+                    'warehouse_name' => $warehouse_name,
+                    'products' => [],
+                ];
+            }
+
+            $transformedData[$key]['products'][] = [
+                'idproduct_master' => $item->idproduct_master,
+                'product_name' => $item->name,
+                'Date' => $item->Date,
+                'selled_quantity' => $item->selled_quantity,
+            ];
+        }
+
+        $transformedData = array_values($transformedData);
+        return $transformedData;
+    }
+
 }
-
-// $criticalProducts = Product::where('quantity', '<=', 10)->get();
-// $replenishmentProducts = Product::where('quantity', '=', 0)->get();
-
-// return response()->json([
-//     'critical_products' => $criticalProducts,
-//     'replenishment_products' => $replenishmentProducts,
-// ]);    
