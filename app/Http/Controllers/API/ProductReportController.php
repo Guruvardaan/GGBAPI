@@ -13,6 +13,9 @@ class ProductReportController extends Controller
     public function get_product_report(Request $request)
     {
         try{
+            $start_date =  !empty($request->start_date) ? $request->start_date : null;
+            $end_date = !empty($request->end_date)? $request->end_date :  null;
+        
             $productmaster = DB::table('product_master')
                             ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'product_master.idproduct_master')
                             ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
@@ -62,6 +65,10 @@ class ProductReportController extends Controller
             if(!empty($request->idbrand)) {
                $productmaster->where('product_master.idbrand', $request->idbrand);
             } 
+
+            if(!empty($start_date) &&  !empty($end_date)) {
+                $productmaster->whereBetween('product_master.created_at',[$start_date, $end_date]);
+            }    
             
             $products = $productmaster->get();
 

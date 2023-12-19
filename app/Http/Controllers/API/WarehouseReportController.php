@@ -10,6 +10,9 @@ class WarehouseReportController extends Controller
 {
     public function get_warehouse_report(Request $request)
     {
+        $start_date =  !empty($request->start_date) ? $request->start_date : null;
+        $end_date = !empty($request->end_date)? $request->end_date :  null;
+
         $warehouses =  DB::table('store_request')
         ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', '=', 'store_request.idstore_warehouse_to')
         ->select(
@@ -21,6 +24,11 @@ class WarehouseReportController extends Controller
         if(!empty($request->idstore_warehouse)) {
             $warehouses->where('store_warehouse.idstore_warehouse', $request->idstore_warehouse);
         }    
+
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $warehouses->whereBetween('store_request.created_at',[$start_date, $end_date]);
+        }
+
         $warehouseData = $warehouses->get();
 
         foreach($warehouseData as $store) {

@@ -101,6 +101,9 @@ class SystemReportController extends Controller
 
     public function get_value_report(Request $request)
     {
+        $start_date =  !empty($request->start_date) ? $request->start_date : null;
+        $end_date = !empty($request->end_date)? $request->end_date :  null;
+
         $data = DB::table('inventory')
                             ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                             ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
@@ -109,6 +112,10 @@ class SystemReportController extends Controller
         if(!empty($request->idstore_warehouse)) {
             $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
         } 
+
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
+        }
 
         $value_report_data = $data->get();                   
         $value_report_data = $this->data_formatting($value_report_data);        
@@ -165,6 +172,9 @@ class SystemReportController extends Controller
 
     public function get_stock_levels_report(Request $request)
     {
+        $start_date =  !empty($request->start_date) ? $request->start_date : null;
+        $end_date = !empty($request->end_date)? $request->end_date :  null;
+
         $data = DB::table('inventory')
                            ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
@@ -173,7 +183,12 @@ class SystemReportController extends Controller
                                     
         if(!empty($request->idstore_warehouse)) {
             $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
-        }                        
+        }
+        
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
+        }
+        
         $stock_levels_report_data = $data->get();
         foreach($stock_levels_report_data as $key => $product) {
             $selled_products = $this->get_selled_quantity($product->idproduct_master);
