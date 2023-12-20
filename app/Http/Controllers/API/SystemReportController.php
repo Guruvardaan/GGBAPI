@@ -309,4 +309,54 @@ class SystemReportController extends Controller
         $transformedData['total'] = $data['total'];
         return $transformedData;
     }
+
+    public function get_sales_report()
+    {
+        $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
+        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+
+        $data = DB::table('customer_order')
+                             ->select(
+                                'idcustomer_order',
+                                'idstore_warehouse',
+                                'idcustomer',
+                                'pay_mode',
+                                'total_quantity',
+                                'total_price',
+                                'total_cgst',
+                                'total_sgst',
+                                'total_discount',
+                                'discount_type',
+                                'created_at',
+                             );
+                             
+        if(!empty($start_date) && !empty($end_date)) {
+            $data->whereBetween('created_at',[$start_date, $end_date]);
+        } 
+
+        if(!empty($store_id)) {
+            $data->where('idstore_warehouse', $store_id);
+        }
+
+        $sales_report_data = $data->paginate($limit);
+        foreach($sales_report_data as $sales) {
+            $oreder_details = $this->get_oreder_details($sales->idcustomer_order);
+            $sales->oreder_details = $oreder_details;
+        }                     
+
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $sales_report_data], 200);                           
+    }
+
+    public function get_oreder_details($id)
+    {
+        $order_details = DB::table('order_detail')
+                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                         ->select('order_detail.idproduct_master', 'product_master.name' ,'order_detail.quantity', 'order_detail.total_price', 'order_detail.total_sgst', 'order_detail.total_cgst', 'order_detail.discount')  
+                         ->where('idcustomer_order', $id)   
+                         ->get();                                  
+        return $order_details;
+    }
+
 }
