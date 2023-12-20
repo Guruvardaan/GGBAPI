@@ -61,13 +61,14 @@ class SystemReportController extends Controller
     {
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $limit = !empty($request->limit) ? $request->limit : 25; 
 
         $profitability = DB::table('inventory')
                          ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                          ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                          ->select('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
                          ->groupBy('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price')
-                         ->get();
+                         ->paginate($limit);
         foreach($profitability as $product) {
             $product->profit_report['sku_profit'] =  round(($product->selling_price - $product->purchase_price) * $product->total_quantity, 3);
             $product->profit_report['listing_profit']['gross_margin'] = round($product->selling_price - $product->purchase_price, 3);
@@ -90,7 +91,7 @@ class SystemReportController extends Controller
                          ->groupBy('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at')
                          ->where('inventory.idproduct_master', $id)
                          ->whereBetween('inventory.created_at',[$start_date, $end_date])
-                         ->get();
+                         ->paginate(20);
         $trending_profit = 0;
         foreach($trending_profitability as $product) {
             $trending_profit += round(($product->selling_price - $product->purchase_price) * $product->total_quantity, 3);    
@@ -103,6 +104,7 @@ class SystemReportController extends Controller
     {
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $limit = !empty($request->limit) ? $request->limit : 25;
 
         $data = DB::table('inventory')
                             ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
@@ -117,7 +119,7 @@ class SystemReportController extends Controller
             $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
 
-        $value_report_data = $data->get();                   
+        $value_report_data = $data->paginate($limit)->toArray();                   
         $value_report_data = $this->data_formatting($value_report_data);        
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $value_report_data], 200);                    
     }
@@ -125,8 +127,9 @@ class SystemReportController extends Controller
     public function data_formatting($data)
     {
         $transformedData = [];
+        // dd($data['current_page']);
 
-        foreach ($data as $item) {
+        foreach ($data['data'] as $item) {
             $idstore_warehouse = $item->idstore_warehouse;
             $warehouse_name = $this->get_warehouse_name($idstore_warehouse);
             
@@ -151,16 +154,32 @@ class SystemReportController extends Controller
         }
 
         $transformedData = array_values($transformedData);
-        
+
+        $transformedData['current_page'] = $data['current_page'];
+        $transformedData['first_page_url'] = $data['first_page_url'];
+        $transformedData['from'] = $data['from'];
+        $transformedData['last_page'] = $data['last_page'];
+        $transformedData['last_page_url'] = $data['last_page_url'];
+        $transformedData['links'] = $data['links'];
+        $transformedData['next_page_url'] = $data['next_page_url'];
+        $transformedData['path'] = $data['path'];
+        $transformedData['per_page'] = $data['per_page'];
+        $transformedData['prev_page_url'] = $data['prev_page_url'];
+        $transformedData['to'] = $data['to'];
+        $transformedData['total'] = $data['total'];
+
+        // $transformedData[0]['test'] = 1;
+        // dd($transformedData);
+
         foreach($transformedData as $key => $data){
             $trending_value = 0;
-            foreach($data['products'] as $product) {
-                $trending_value +=  $product['snapshot_value'];
+            if(is_numeric($key)) {
+                foreach($data['products'] as $product) {
+                    $trending_value +=  $product['snapshot_value'];
+                }
+                $transformedData[$key]['trending_value'] = round($trending_value, 2);
             }
-            $transformedData[$key]['trending_value'] = round($trending_value, 2);
-            
         }
-        
         return $transformedData;
     }
 
@@ -229,6 +248,7 @@ class SystemReportController extends Controller
     {
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $limit = !empty($request->limit) ? $request->limit : 25;
 
         $data = DB::table('inventory')
                     ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
@@ -242,7 +262,7 @@ class SystemReportController extends Controller
             $data->where('idstore_warehouse', $request->idstore_warehouse);
         }                       
         
-        $inventory_forecasting_report = $data->get();
+        $inventory_forecasting_report = $data->paginate(2)->toArray();
         $inventory_forecasting_report = $this->forecasting_data_formatting($inventory_forecasting_report);
 
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventory_forecasting_report], 200);                                
@@ -251,8 +271,9 @@ class SystemReportController extends Controller
     public function forecasting_data_formatting($data)
     {
         $transformedData = [];
+        // dd($data);
 
-        foreach ($data as $item) {
+        foreach ($data['data'] as $item) {
             $idstore_warehouse = $item->idstore_warehouse;
             $warehouse_name = $this->get_warehouse_name($idstore_warehouse);
             
@@ -274,7 +295,18 @@ class SystemReportController extends Controller
         }
 
         $transformedData = array_values($transformedData);
+        $transformedData['current_page'] = $data['current_page'];
+        $transformedData['first_page_url'] = $data['first_page_url'];
+        $transformedData['from'] = $data['from'];
+        $transformedData['last_page'] = $data['last_page'];
+        $transformedData['last_page_url'] = $data['last_page_url'];
+        $transformedData['links'] = $data['links'];
+        $transformedData['next_page_url'] = $data['next_page_url'];
+        $transformedData['path'] = $data['path'];
+        $transformedData['per_page'] = $data['per_page'];
+        $transformedData['prev_page_url'] = $data['prev_page_url'];
+        $transformedData['to'] = $data['to'];
+        $transformedData['total'] = $data['total'];
         return $transformedData;
     }
-
 }
