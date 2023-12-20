@@ -32,3 +32,4 @@ Route::post('inventory-value-report', [SystemReportController::class, 'get_value
 Route::post('stock-levels-report', [SystemReportController::class, 'get_stock_levels_report']);
 Route::post('inventory-forecasting-report', [SystemReportController::class, 'inventory_forecasting_report']);
 Route::get('sales-report', [SystemReportController::class, 'get_sales_report']);
+Route::get('cogs-report', [SystemReportController::class, 'get_cogs_report']);

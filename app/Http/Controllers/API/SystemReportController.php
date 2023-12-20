@@ -359,4 +359,78 @@ class SystemReportController extends Controller
         return $order_details;
     }
 
-}
+    public function get_cogs_report()
+    {
+        $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
+        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        $idcategory = !empty($_GET['idcategory']) ? $_GET['idcategory'] : null;;
+        $idsub_category = !empty($_GET['idsub_category']) ? $_GET['idsub_category'] : null;;
+        $idsub_sub_category = !empty($_GET['idsub_sub_category']) ? $_GET['idsub_sub_category'] : null;;
+        $idbrand = !empty($_GET['idbrand']) ? $_GET['idbrand'] : null;;
+
+
+        $data =  DB::table('product_master')
+                ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'product_master.idproduct_master')
+                ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                ->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category')
+                ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                // ->leftJoin
+                ->select(
+                    'product_master.idproduct_master',
+                    'product_batch.idstore_warehouse',
+                    'product_master.idcategory',
+                    'category.name As category_name',
+                    'product_master.idsub_category',
+                    'sub_category.name as sub_category_name',
+                    'product_master.idsub_sub_category',
+                    'sub_sub_category.name AS sub_sub_category_name',
+                    'product_master.idbrand',
+                    'brands.name As brand_name',
+                    'product_master.name',
+                    'product_master.barcode',
+                    'product_batch.purchase_price AS purchase_price'        
+                );    
+        if(!empty($idcategory)) {
+            $data->where('product_master.idcategory', $idcategory);
+        } 
+        if(!empty($idsub_category)) {
+            $data->where('product_master.idsub_category', $idsub_category);
+        }
+        if(!empty($idsub_sub_category)) {
+            $data->where('product_master.idsub_sub_category', $idsub_sub_category);    
+        } 
+        if(!empty($idbrand)) {
+            $data->where('product_master.idbrand', $idbrand);
+        }  
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $data->whereBetween('product_master.created_at',[$start_date, $end_date]);
+        }
+        if(!empty($store_id)) {
+            $data->where('product_batch.idstore_warehouse', $store_id);
+        }
+        
+        $cogs_report = $data->paginate($limit);   
+
+        foreach($cogs_report as $product) {
+            $inventory = $this->get_quantity($product->idproduct_master);
+            $product->total_quantity = $inventory->total_quantity;
+            $product->cogs = round($inventory->total_quantity * $inventory->purchase_price, 2);
+        }
+
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $cogs_report], 200);
+    }
+
+    public function get_quantity($id) 
+    {
+        $inventory_quantity = DB::table('inventory')
+                              ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                              ->select('inventory.purchase_price', DB::raw('sum(inventory.quantity) as total_quantity'))
+                              ->groupBy('inventory.idproduct_master', 'inventory.purchase_price')
+                              ->where('inventory.idproduct_master', $id)
+                              ->first();
+        return $inventory_quantity;                      
+    }
+ }
