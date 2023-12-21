@@ -365,10 +365,10 @@ class SystemReportController extends Controller
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
         $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
-        $idcategory = !empty($_GET['idcategory']) ? $_GET['idcategory'] : null;;
-        $idsub_category = !empty($_GET['idsub_category']) ? $_GET['idsub_category'] : null;;
-        $idsub_sub_category = !empty($_GET['idsub_sub_category']) ? $_GET['idsub_sub_category'] : null;;
-        $idbrand = !empty($_GET['idbrand']) ? $_GET['idbrand'] : null;;
+        $idcategory = !empty($_GET['idcategory']) ? $_GET['idcategory'] : null;
+        $idsub_category = !empty($_GET['idsub_category']) ? $_GET['idsub_category'] : null;
+        $idsub_sub_category = !empty($_GET['idsub_sub_category']) ? $_GET['idsub_sub_category'] : null;
+        $idbrand = !empty($_GET['idbrand']) ? $_GET['idbrand'] : null;
 
 
         $data =  DB::table('product_master')
@@ -433,4 +433,85 @@ class SystemReportController extends Controller
                               ->first();
         return $inventory_quantity;                      
     }
+
+    public function get_purchase_order_report()
+    {
+        $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
+        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        $idcategory = !empty($_GET['idcategory']) ? $_GET['idcategory'] : null;
+        $idsub_category = !empty($_GET['idsub_category']) ? $_GET['idsub_category'] : null;
+        $idsub_sub_category = !empty($_GET['idsub_sub_category']) ? $_GET['idsub_sub_category'] : null;
+        $idbrand = !empty($_GET['idbrand']) ? $_GET['idbrand'] : null;
+
+        $data = DB::table('vendor_purchases_detail')
+                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')   
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                ->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category')
+                ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                ->select(
+                    'inventory.idstore_warehouse',
+                    'inventory.idproduct_master',
+                    'product_master.name',
+                    'product_master.idcategory',
+                    'category.name As category_name',
+                    'product_master.idsub_category',
+                    'sub_category.name as sub_category_name',
+                    'product_master.idsub_sub_category',
+                    'sub_sub_category.name AS sub_sub_category_name',
+                    'product_master.idbrand',
+                    'brands.name As brand_name',
+                    'vendor_purchases_detail.quantity',
+                    'product_master.cgst',
+                    'product_master.sgst',
+                    'inventory.purchase_price',
+                    DB::Raw('inventory.purchase_price * vendor_purchases_detail.quantity As amount')
+                );
+
+        if(!empty($idcategory)) {
+            $data->where('product_master.idcategory', $idcategory);
+        } 
+        if(!empty($idsub_category)) {
+            $data->where('product_master.idsub_category', $idsub_category);
+        }
+        if(!empty($idsub_sub_category)) {
+            $data->where('product_master.idsub_sub_category', $idsub_sub_category);    
+        } 
+        if(!empty($idbrand)) {
+            $data->where('product_master.idbrand', $idbrand);
+        }  
+        if(!empty($start_date) &&  !empty($end_date)) {
+             $data->whereBetween('vendor_purchases_detail.created_at',[$start_date, $end_date]);
+        }
+        if(!empty($store_id)) {
+            $data->where('inventory.idstore_warehouse', $store_id);
+        }        
+
+        $purchase_order_report = $data->paginate($limit);   
+        $gross_total = 0;
+        foreach($purchase_order_report as $product) {
+            $cgst = 0;
+            $sgst = 0;
+            $product->amount = round($product->amount, 2);
+            if(!empty($product->cgst)) {
+                $cgst = $product->amount * ($product->cgst/100);
+            }
+            if(!empty($product->sgst)) {
+                $sgst = $product->amount * ($product->sgst/100);
+            }
+
+            $total_amount_with_tax = $product->amount + $sgst + $cgst;
+            $product->total_amount_with_tax = round($total_amount_with_tax, 2);
+            $gross_total += $total_amount_with_tax;
+        }
+        $purchase_order_report['gross_total'] = round($gross_total, 2);
+
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $purchase_order_report], 200);        
+    }
  }
+
+//  To calculate the grand total with tax in PHP – $grand = $total  * ((100 + TAX PERCENT) / 100);
+// To get the taxable amount – $tax = $total * (TAX PERCENT / 100);
