@@ -6,6 +6,7 @@ use App\Http\Controllers\API\ProductReportController;
 use App\Http\Controllers\API\InventoryReportController;
 use App\Http\Controllers\API\WarehouseReportController;
 use App\Http\Controllers\API\SystemReportController;
+use App\Http\Controllers\API\UpdateRecordController;
 
 
 /*
@@ -34,3 +35,10 @@ Route::post('inventory-forecasting-report', [SystemReportController::class, 'inv
 Route::get('sales-report', [SystemReportController::class, 'get_sales_report']);
 Route::get('cogs-report', [SystemReportController::class, 'get_cogs_report']);
 Route::get('purchase-order-report', [SystemReportController::class, 'get_purchase_order_report']);
+
+/* Records Update */
+Route::get('update-product-records', [UpdateRecordController::class, 'update_product_records']);
+Route::get('update-category-records', [UpdateRecordController::class, 'update_category_records']);
+Route::get('update-sub-category-records', [UpdateRecordController::class, 'update_sub_category_records']);
+Route::get('update-sub-sub-category-records', [UpdateRecordController::class, 'update_sub_sub_category_records']);
+Route::get('update-brands-records', [UpdateRecordController::class, 'update_brands_records']);
