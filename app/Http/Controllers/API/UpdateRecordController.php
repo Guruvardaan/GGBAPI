@@ -39,8 +39,9 @@ class UpdateRecordController extends Controller
         $categories = DB::table('export_cat_data')
                 ->select('category As name')
                 ->groupBy('category')
-                ->get();         
-
+                ->where('category', '<>', '')
+                ->get();  
+                      
         $categories_with_ids = $this->get_categories_with_id($categories);
         $categories_without_ids = $this->get_categories_without_id($categories, $categories_with_ids);
 
@@ -59,6 +60,10 @@ class UpdateRecordController extends Controller
         $categories_without_ids_map_data = $this->get_map_without_id_data($barcode_cat_map, $categories_without_ids);
         foreach($categories_with_ids_map_data as $data) {
             if(!empty($data['barcodes']) && !empty($data['id'])) {
+                $cat_status = DB::table('category')->select('status')->where('idcategory', $data['id'])->first();
+                if(empty($cat_status->status)) {
+                    DB::table('category')->where('idcategory', $data['id'])->update(array('status' => '1'));
+                } 
                 $this->modify_product_cat_ids($data['barcodes'], $data['id']);
             }
         }
@@ -186,7 +191,7 @@ class UpdateRecordController extends Controller
             'created_at' => Carbon::now()->toDateTimeString(),
             'updated_at' => Carbon::now()->toDateTimeString(),
             'updated_by' => -1,
-            'status' => 1
+            'status' => '1'
         ];
 
        $id =  DB::table('category')->insertGetId($insert_data);
@@ -216,33 +221,36 @@ class UpdateRecordController extends Controller
     public function update_sub_category_records()
     {
         $sub_categories = DB::table('export_cat_data')
-            ->select('sub_category As name')
+            ->select(DB::raw('sub_category As name'))
             ->groupBy('sub_category')
-            ->get();    
+            ->where('sub_category', '<>', '')
+            ->get();
 
         $sub_categories_with_ids = $this->get_sub_categories_with_id($sub_categories);
         $sub_categories_without_ids = $this->get_sub_categories_without_id($sub_categories, $sub_categories_with_ids);
- 
-        // dd($sub_categories_with_ids);
 
         $sub_cat_map = $this->sub_category_barcode_map($sub_categories);
-        // dd($sub_cat_map);
 
         $barcode_sub_cat_map = [];
         foreach($sub_cat_map as $key => $sub_cat_barcode) {
             foreach($sub_cat_barcode as $barcodes) {
                foreach($barcodes as $barcode) {
-                $barcode_sub_cat_map[$key][] = $barcode->barcode; 
+                $barcode_sub_cat_map[ltrim($key)][] = $barcode->barcode; 
                }
             }
         }
-
+      
         $categories_with_ids_map_data = $this->get_sub_map_with_id_data($barcode_sub_cat_map, $sub_categories_with_ids);
         $categories_without_ids_map_data = $this->get_sub_map_without_id_data($barcode_sub_cat_map, $sub_categories_without_ids);
 
+        // dd($categories_without_ids_map_data);
         foreach($categories_with_ids_map_data as $data) {
             if(!empty($data['barcodes']) && !empty($data['id']) && !empty($data['category'])) {
                 $cat_id = DB::table('category')->select('idcategory')->where('name', $data['category'])->first();
+                $sub_cat_status = DB::table('sub_category')->select('status')->where('idsub_category', $data['id'])->first();
+                if(empty($sub_cat_status->status)) {
+                    DB::table('sub_category')->where('idsub_category', $data['id'])->update(array('status' => '1'));
+                }
                 $this->modify_product_sub_cat_ids($data['barcodes'], $data['id'], $cat_id->idcategory);
             }
         }
@@ -374,7 +382,7 @@ class UpdateRecordController extends Controller
             'created_at' => Carbon::now()->toDateTimeString(),
             'updated_at' => Carbon::now()->toDateTimeString(),
             'updated_by' => -1,
-            'status' => 1
+            'status' => '1'
         ];
 
        $id =  DB::table('sub_category')->insertGetId($insert_data);
