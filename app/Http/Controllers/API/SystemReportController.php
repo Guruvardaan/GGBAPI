@@ -251,7 +251,7 @@ class SystemReportController extends Controller
         $limit = !empty($request->limit) ? $request->limit : 25;
 
         $data = DB::table('inventory')
-                    ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                    ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                     ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'inventory.created_at As Date', DB::raw('sum(inventory.quantity) as selled_quantity'))
                     ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'inventory.created_at');
 
@@ -262,7 +262,7 @@ class SystemReportController extends Controller
             $data->where('idstore_warehouse', $request->idstore_warehouse);
         }                       
         
-        $inventory_forecasting_report = $data->paginate(2)->toArray();
+        $inventory_forecasting_report = $data->paginate($limit)->toArray();
         $inventory_forecasting_report = $this->forecasting_data_formatting($inventory_forecasting_report);
 
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventory_forecasting_report], 200);                                
@@ -416,8 +416,12 @@ class SystemReportController extends Controller
 
         foreach($cogs_report as $product) {
             $inventory = $this->get_quantity($product->idproduct_master);
-            $product->total_quantity = $inventory->total_quantity;
-            $product->cogs = round($inventory->total_quantity * $inventory->purchase_price, 2);
+            $product->total_quantity = 0;
+            $product->cogs = 0;
+            if(!empty($inventory)) {
+                $product->total_quantity = $inventory->total_quantity;
+                $product->cogs = round($inventory->total_quantity * $inventory->purchase_price, 2);   
+            }
         }
 
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $cogs_report], 200);
@@ -512,6 +516,3 @@ class SystemReportController extends Controller
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $purchase_order_report], 200);        
     }
  }
-
-//  To calculate the grand total with tax in PHP – $grand = $total  * ((100 + TAX PERCENT) / 100);
-// To get the taxable amount – $tax = $total * (TAX PERCENT / 100);
