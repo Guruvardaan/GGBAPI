@@ -109,7 +109,7 @@ class SystemReportController extends Controller
         $limit = !empty($request->limit) ? $request->limit : 25;
 
         $data = DB::table('inventory')
-                            ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                             ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                             ->select('inventory.idproduct_master','inventory.idstore_warehouse' ,'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
                             ->groupBy('inventory.idproduct_master','inventory.idstore_warehouse' ,'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at');
