@@ -7,6 +7,7 @@ use App\Http\Controllers\API\InventoryReportController;
 use App\Http\Controllers\API\WarehouseReportController;
 use App\Http\Controllers\API\SystemReportController;
 use App\Http\Controllers\API\UpdateRecordController;
+use App\Http\Controllers\API\InventoryThresholdController;
 
 
 /*
@@ -35,6 +36,16 @@ Route::post('inventory-forecasting-report', [SystemReportController::class, 'inv
 Route::get('sales-report', [SystemReportController::class, 'get_sales_report']);
 Route::get('cogs-report', [SystemReportController::class, 'get_cogs_report']);
 Route::get('purchase-order-report', [SystemReportController::class, 'get_purchase_order_report']);
+
+Route::controller(InventoryThresholdController::class)->group(function () {
+    Route::prefix('inventory-threshold')->group(function () {
+        Route::get('list', 'index');
+        Route::post('create', 'store');
+        Route::post('edit/{id}', 'update');
+        Route::get('view/{id}', 'show');
+        Route::delete('delete/{id}', 'destroy');
+    });    
+});
 
 /* Records Update */
 Route::get('update-product-records', [UpdateRecordController::class, 'update_product_records']);

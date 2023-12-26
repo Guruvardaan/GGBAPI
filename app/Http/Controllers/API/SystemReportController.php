@@ -65,7 +65,7 @@ class SystemReportController extends Controller
         $limit = !empty($request->limit) ? $request->limit : 25; 
 
         $profitability = DB::table('inventory')
-                         ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                          ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                          ->select('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
                          ->groupBy('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price')
@@ -364,6 +364,7 @@ class SystemReportController extends Controller
 
     public function get_cogs_report()
     {
+        ini_set('max_execution_time', 14000);
         $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
