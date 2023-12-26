@@ -59,6 +59,7 @@ class SystemReportController extends Controller
     
     public function get_inventory_profitability_report(Request $request)
     {
+        ini_set('max_execution_time', 14000);
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
         $limit = !empty($request->limit) ? $request->limit : 25; 
@@ -102,6 +103,7 @@ class SystemReportController extends Controller
 
     public function get_value_report(Request $request)
     {
+        ini_set('max_execution_time', 14000);
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
         $limit = !empty($request->limit) ? $request->limit : 25;
@@ -191,6 +193,7 @@ class SystemReportController extends Controller
 
     public function get_stock_levels_report(Request $request)
     {
+        ini_set('max_execution_time', 14000);
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
 
