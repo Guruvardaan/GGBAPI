@@ -6,6 +6,7 @@ use App\Http\Controllers\APIController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderDetailController;
+use App\Http\Controllers\BannerController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -35,3 +36,7 @@ Route::get('/orderReport',  [OrderController::class, 'getUserData']);
 Route::get('/orderDetail',  [OrderDetailController::class, 'getOrderData']);
 Route::post('get-token', [AuthController::class, 'getToken']);
 
+Route::post('get-banner',[BannerController::class, 'getBanner']);
+Route::post('create-banner',[BannerController::class, 'createBanner']);
+Route::post('update-banner',[BannerController::class, 'updateBanner']);
+Route::post('delete-banner',[BannerController::class, 'destroyBanner']);
