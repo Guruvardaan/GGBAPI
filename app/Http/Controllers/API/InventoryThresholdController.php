@@ -191,30 +191,7 @@ class InventoryThresholdController extends Controller
                 return response()->json(['errors' => $validator->errors()], 422);
             } 
 
-            $transformedData = [];
-
-            foreach ($request->order_data as $item) {
-                $idstore_warehouse = $item["idstore_warehouse"];
-                $idvendor = $item["idstore_warehouse"];
-            
-                $key = "{$idstore_warehouse}-{$idvendor}";
-                if (!isset($transformedData[$key])) {
-                    $transformedData[$key] = [
-                        'idstore_warehouse' => $idstore_warehouse,
-                        'idvendor' => $idvendor,
-                        'products' => [],
-                    ];
-                }
-
-                $transformedData[$key]['products'][] = [
-                    'idproduct_master' => $item["idproduct_master"],
-                    'quantity' => $item["quantity"],
-                ];
-            }
-
-            $transformedData = array_values($transformedData);
-            
-            foreach($transformedData as $order) {
+            foreach($request->order_data  as $order) {
                 $purchase_order_data = [
                     'idvendor' => $order["idvendor"],
                     'idstore_warehouse' =>$order["idstore_warehouse"]
@@ -245,11 +222,11 @@ class InventoryThresholdController extends Controller
                     $idpurchase_order_detail = DB::table('purchase_order_detail')->insertGetId($data);
                 }
             }
+            
             return response()->json(["statusCode" => 0, "message" => "Order Placed Sucessfully."], 200);
 
         } catch(\Exception $e) {
             return response()->json(["statusCode" => 1, 'message' => $e->getMessage()], 500);
         }     
     }
-
 }
