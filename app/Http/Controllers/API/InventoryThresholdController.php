@@ -112,4 +112,69 @@ class InventoryThresholdController extends Controller
             return response()->json(["statusCode" => 1, 'message' => $e->getMessage()], 500);
         }     
     }
+
+    public function get_inventory_threshold_products()
+    {
+        $idstore_warehouse = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
+
+        $threshold_data = DB::table('inventory_threshold')
+                                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'inventory_threshold.idproduct_master')
+                                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory_threshold.idproduct_master')
+                                ->select('inventory.idstore_warehouse', 'inventory_threshold.idproduct_master','product_master.name', 'inventory_threshold.threshold_quantity', DB::raw('sum(inventory.quantity) as quantity'))
+                                ->groupBy('inventory.idstore_warehouse', 'inventory_threshold.idproduct_master','product_master.name', 'inventory_threshold.threshold_quantity');
+       
+        if(!empty($idstore_warehouse)) {
+            $threshold_data->where('inventory.idstore_warehouse', $idstore_warehouse);
+        }
+
+       $inventory_threshold = $threshold_data->get();                         
+       
+       $data = [];                  
+       foreach($inventory_threshold as $product) {
+         if(!empty($product->quantity) && !empty($product->threshold_quantity)) {
+            if($product->quantity <= $product->threshold_quantity) {
+                $data[] = $product;
+            }
+         }
+       }               
+       $data = $this->data_formatting($data);
+       return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);      
+    }
+
+    public function data_formatting($data)
+    {
+        $transformedData = [];
+
+        foreach ($data as $item) {
+            $idstore_warehouse = $item->idstore_warehouse;
+            $warehouse_name = $this->get_warehouse_name($idstore_warehouse);
+            
+            $key = "{$item->idstore_warehouse}";
+            if (!isset($transformedData[$key])) {
+                $transformedData[$key] = [
+                    'idstore_warehouse' => $idstore_warehouse,
+                    'warehouse_name' => $warehouse_name,
+                    'products' => [],
+                ];
+            }
+
+            $transformedData[$key]['products'][] = [
+                'idproduct_master' => $item->idproduct_master,
+                'product_name' => $item->name,
+                'threshold_quantity' => $item->threshold_quantity,
+                'quantity' => $item->quantity,
+            ];
+        }
+
+        $transformedData = array_values($transformedData);
+
+        return $transformedData;
+    }
+
+    public function get_warehouse_name($id)
+    {
+        $warehouse = DB::table('store_warehouse')->where('idstore_warehouse', $id)->first();
+        return !empty($warehouse) ? $warehouse->name : ''; 
+    }
+
 }

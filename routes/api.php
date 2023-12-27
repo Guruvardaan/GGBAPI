@@ -47,6 +47,8 @@ Route::controller(InventoryThresholdController::class)->group(function () {
     });    
 });
 
+Route::get('inventory-threshold-products', [InventoryThresholdController::class, 'get_inventory_threshold_products']);
+
 /* Records Update */
 Route::get('update-product-records', [UpdateRecordController::class, 'update_product_records']);
 Route::get('update-category-records', [UpdateRecordController::class, 'update_category_records']);

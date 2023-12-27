@@ -12,7 +12,7 @@ class Helper
         $inventory_threshold = DB::table('inventory_threshold')->where('idproduct_master', $idproduct_master)->first();
         $inventory = DB::table('inventory')->select('quantity')->where('idproduct_master', $idproduct_master)->first();
         if(!empty($inventory_threshold) && !empty($inventory)){
-            if($quantity <= $inventory->quantity) {
+            if($inventory_threshold->threshold_quantity <= $inventory->quantity) {
                 try{
                     $request_data = [
                         'idstore_warehouse_to' => $inventory_threshold->idstore_warehouse,
