@@ -229,4 +229,37 @@ class InventoryThresholdController extends Controller
             return response()->json(["statusCode" => 1, 'message' => $e->getMessage()], 500);
         }     
     }
+    
+    public function get_threshold_order()
+    {
+        $idstore_warehouse = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
+        $idvendor = !empty($_GET['idvendor']) ? $_GET['idvendor'] : null;
+
+        $get_data = DB::table('purchase_order')
+                    ->select('id as idpurchase_order', 'idvendor', 'idstore_warehouse','total_quantity');
+        
+        if(!empty($idstore_warehouse)) {
+            $get_data->where('idstore_warehouse', $idstore_warehouse);
+        } 
+        if(!empty($idvendor)) {
+            $get_data->where('idvendor', $idvendor);
+        }            
+        $threshold_order = $get_data->get();
+        
+        foreach($threshold_order as $order) {
+            $order_detail = $this->get_order_detail($order->idpurchase_order);
+            $order->products = $order_detail;
+        }       
+        return response()->json(["statusCode" => 0, "message" => "success", "data" => $threshold_order], 200); 
+    }
+
+    public function get_order_detail($id)
+    {
+        $get_detail_data = DB::table('purchase_order_detail')
+                           ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'purchase_order_detail.idproduct_master') 
+                           ->select('purchase_order_detail.idproduct_master', 'product_master.name', 'purchase_order_detail.quantity')
+                           ->where('purchase_order_detail.idpurchase_order', $id) 
+                           ->get();
+        return $get_detail_data;                                     
+    }
 }
