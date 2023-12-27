@@ -177,4 +177,79 @@ class InventoryThresholdController extends Controller
         return !empty($warehouse) ? $warehouse->name : ''; 
     }
 
+    public function place_order_threshold_product(Request $request)
+    {
+        try{
+            
+            $validator = Validator::make($request->all(), [
+                'order_data' => 'required|array',
+            ],[
+               'order_data.required' => 'Please enter order data.', 
+               'order_data.array' => 'Please enter order data in array format.',
+            ]);
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            } 
+
+            $transformedData = [];
+
+            foreach ($request->order_data as $item) {
+                $idstore_warehouse = $item["idstore_warehouse"];
+                $idvendor = $item["idstore_warehouse"];
+            
+                $key = "{$idstore_warehouse}-{$idvendor}";
+                if (!isset($transformedData[$key])) {
+                    $transformedData[$key] = [
+                        'idstore_warehouse' => $idstore_warehouse,
+                        'idvendor' => $idvendor,
+                        'products' => [],
+                    ];
+                }
+
+                $transformedData[$key]['products'][] = [
+                    'idproduct_master' => $item["idproduct_master"],
+                    'quantity' => $item["quantity"],
+                ];
+            }
+
+            $transformedData = array_values($transformedData);
+            
+            foreach($transformedData as $order) {
+                $purchase_order_data = [
+                    'idvendor' => $order["idvendor"],
+                    'idstore_warehouse' =>$order["idstore_warehouse"]
+                ];
+                $total_quantity = 0;
+                $purchase_order_detail_data = [];
+                foreach($order["products"] as $product) {
+                    $total_quantity += $product["quantity"];
+                    $purchase_order_detail_data[] = [
+                        'idproduct_master' => $product["idproduct_master"],
+                        'quantity' => $product["quantity"],
+                        'status' => 1,
+                        "created_at" => now(),
+                        "updated_at" => now() 
+                    ];
+                }
+                $purchase_order_data += [
+                    'total_quantity' => $total_quantity,
+                    'status' => 1,
+                    "created_at" => now(),
+                    "updated_at" => now()
+                ];
+
+                $idpurchase_order = DB::table('purchase_order')->insertGetId($purchase_order_data);
+
+                foreach($purchase_order_detail_data as $data) {
+                    $data['idpurchase_order'] = $idpurchase_order;
+                    $idpurchase_order_detail = DB::table('purchase_order_detail')->insertGetId($data);
+                }
+            }
+            return response()->json(["statusCode" => 0, "message" => "Order Placed Sucessfully."], 200);
+
+        } catch(\Exception $e) {
+            return response()->json(["statusCode" => 1, 'message' => $e->getMessage()], 500);
+        }     
+    }
+
 }
