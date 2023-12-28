@@ -47,3 +47,4 @@ Route::post('reorder',[ReorderController::class, 'reorder']);
 Route::post('newly-added-products',[ProductsController::class, 'newlyAddedProducts']);
 Route::post('frequently-bought-products',[ProductsController::class, 'frequentlyBoughtProducts']);
 Route::post('most-popular-products',[ProductsController::class, 'mostPopularProducts']);
+Route::post('deals-of-the-day-products',[ProductsController::class, 'dealsOfTheDayProducts']);
