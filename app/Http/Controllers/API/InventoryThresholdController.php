@@ -340,15 +340,86 @@ class InventoryThresholdController extends Controller
 
     public function sync_inventory_with_purchase_order()
     {
-        $get_warehouse_wise_store = DB::table('store_warehouse')
-                                    ->select('idstore_warehouse', 'name')
-                                    ->where('is_store', 0)
-                                    ->where('status', 1)
-                                    ->get();
-        foreach($get_warehouse_wise_store as $warehouse){
+        $get_warehouse_wise_store = $this->get_warehouse_wise_store();
+        foreach($get_warehouse_wise_store as $warehouse) {
+            foreach($warehouse->stores as $store) {
+               $inventory_threshold = $this->get_inventory_threshold_store_wise($store->idstore_warehouse);
+               if(!empty($inventory_threshold[0]['products'])) {
+                  $inventory_threshold_data = $inventory_threshold[0]['products'];
+                  $store->products['threshold_products'] = !empty($inventory_threshold_data['threshold_products']) ? $inventory_threshold_data['threshold_products'] : [];
+                  $store->products['expiry_in_10days_threshold_products'] = !empty($inventory_threshold_data['expiry_in_10days_threshold_products']) ? $inventory_threshold_data['expiry_in_10days_threshold_products'] : [];
+                  $store->products['expiry_in_10days_products'] = !empty($inventory_threshold_data['expiry_in_10days_products']) ? $inventory_threshold_data['expiry_in_10days_products'] : [];
+               } else {
+                  $store->products['threshold_products'] = [];
+                  $store->products['expiry_in_10days_threshold_products'] = [];
+                  $store->products['expiry_in_10days_products'] = [];
+               }
+            }
+        }
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $get_warehouse_wise_store], 200);         
+    }
+
+    public function get_warehouse_wise_store()
+    {
+        $data =  DB::table('store_warehouse')
+                 ->select('idstore_warehouse', 'name')
+                 ->where('is_store', 0)
+                 ->where('status', 1)
+                 ->get();
+
+        foreach($data as $warehouse){
             $get_store = DB::table('store_warehouse')->select('idstore_warehouse', 'name')->where('warehouse_connected', $warehouse->idstore_warehouse)->where('status', 1)->get();
             $warehouse->stores = $get_store;
-        }       
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $get_warehouse_wise_store], 200);         
+        }
+
+        foreach ($data as &$warehouse) {
+            $idstore_warehouse = $warehouse->idstore_warehouse;
+            $name = $warehouse->name;
+            $newStore = [
+                "idstore_warehouse" => $idstore_warehouse,
+                "name" => $name,
+            ];
+            $warehouse->stores[] = (object)$newStore;
+        }
+
+        return $data;
+    }
+
+    public function get_inventory_threshold_store_wise($idstore_warehouse)
+    {
+        $inventory_threshold = DB::table('inventory_threshold')
+                                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'inventory_threshold.idproduct_master')
+                                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory_threshold.idproduct_master')
+                                ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idproduct_master', '=', 'inventory_threshold.idproduct_master')
+                                ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                                ->select('inventory.idstore_warehouse', 'inventory_threshold.idproduct_master','product_master.name', 'product_master.barcode', 'brands.name As brand_name', 'inventory_threshold.threshold_quantity','vendor_purchases_detail.expiry', DB::raw('sum(inventory.quantity) as quantity'))
+                                ->groupBy('inventory.idstore_warehouse', 'inventory_threshold.idproduct_master','product_master.name', 'product_master.barcode', 'brands.name', 'inventory_threshold.threshold_quantity','vendor_purchases_detail.expiry')
+                                ->where('inventory.idstore_warehouse', $idstore_warehouse)
+                                ->get();
+                               
+       $near_by_expried_products = $this->get_near_by_expried_product($idstore_warehouse); 
+       $expiry_in_10days = [];
+       $expiry_in_10days_threshold = [];
+       foreach($near_by_expried_products as $product) {
+        if(!empty($product->threshold_quantity) && $product->quantity <= $product->threshold_quantity) {
+            $expiry_in_10days_threshold[] = $product;
+        } else {
+            $expiry_in_10days[] = $product;
+        }
+       }
+       $expiry_in_10days_threshold = $this->data_formatting($expiry_in_10days_threshold);
+       $expiry_in_10days = $this->data_formatting($expiry_in_10days);   
+       $data = [];              
+       foreach($inventory_threshold as $product) {
+         if(!empty($product->quantity) && !empty($product->threshold_quantity)) {
+            if($product->quantity <= $product->threshold_quantity) {
+                $data[] = $product;
+            }
+         }
+       }               
+       $data = $this->data_formatting($data);
+
+       $filterData = $this->filtered_data($data, $expiry_in_10days_threshold, $expiry_in_10days);
+       return $filterData;      
     }
 }
