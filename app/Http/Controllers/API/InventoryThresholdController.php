@@ -337,4 +337,18 @@ class InventoryThresholdController extends Controller
         }
         return $result;
     }
+
+    public function sync_inventory_with_purchase_order()
+    {
+        $get_warehouse_wise_store = DB::table('store_warehouse')
+                                    ->select('idstore_warehouse', 'name')
+                                    ->where('is_store', 0)
+                                    ->where('status', 1)
+                                    ->get();
+        foreach($get_warehouse_wise_store as $warehouse){
+            $get_store = DB::table('store_warehouse')->select('idstore_warehouse', 'name')->where('warehouse_connected', $warehouse->idstore_warehouse)->where('status', 1)->get();
+            $warehouse->stores = $get_store;
+        }       
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $get_warehouse_wise_store], 200);         
+    }
 }
