@@ -7,6 +7,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderDetailController;
 use App\Http\Controllers\BannerController;
+use App\Http\Controllers\ReorderController;
+use App\Http\Controllers\ProductsController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -40,3 +42,8 @@ Route::post('get-banner',[BannerController::class, 'getBanner']);
 Route::post('create-banner',[BannerController::class, 'createBanner']);
 Route::post('update-banner',[BannerController::class, 'updateBanner']);
 Route::post('delete-banner',[BannerController::class, 'destroyBanner']);
+
+Route::post('reorder',[ReorderController::class, 'reorder']);
+Route::post('newly-added-products',[ProductsController::class, 'newlyAddedProducts']);
+Route::post('frequently-bought-products',[ProductsController::class, 'frequentlyBoughtProducts']);
+Route::post('most-popular-products',[ProductsController::class, 'mostPopularProducts']);
