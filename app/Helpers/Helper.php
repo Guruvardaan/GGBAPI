@@ -1,6 +1,9 @@
 <?php
 namespace App\Helpers;
 use DB;
+use App\Models\Support;
+use App\Models\SupportCategoryMaster;
+use App\Models\ContactCategoryMaster;
 
 class Helper
 {
@@ -57,5 +60,22 @@ class Helper
                     'inventory.listing_type AS origListType'
                 );
         return $productmaster;
+    }
+
+    public static function getIssues($issue_id=''){
+        $issueDetail = Support::select();
+        if($issue_id!=''){
+            $issueDetail->where('id',$issue_id);
+        }
+        $issueDetails = $issueDetail->orderBy('id','desc')->get();
+        return $issueDetails;
+    }
+    public static function getSupportCategories(){
+        $support_categories = SupportCategoryMaster::where('status',1)->orderBy('id','asc')->get();
+        return $support_categories;
+    }
+    public static function getContactCategories(){
+        $contact_categories = ContactCategoryMaster::where('status',1)->orderBy('id','asc')->with('subcategory')->get();
+        return $contact_categories;
     }
 }

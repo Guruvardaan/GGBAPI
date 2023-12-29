@@ -9,6 +9,8 @@ use App\Http\Controllers\OrderDetailController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\ReorderController;
 use App\Http\Controllers\ProductsController;
+use App\Http\Controllers\SupportController;
+use App\Http\Controllers\ContactController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -48,3 +50,8 @@ Route::post('newly-added-products',[ProductsController::class, 'newlyAddedProduc
 Route::post('frequently-bought-products',[ProductsController::class, 'frequentlyBoughtProducts']);
 Route::post('most-popular-products',[ProductsController::class, 'mostPopularProducts']);
 Route::post('deals-of-the-day-products',[ProductsController::class, 'dealsOfTheDayProducts']);
+Route::post('create-issue',[SupportController::class, 'createIssue']);
+Route::post('get-issues',[SupportController::class, 'getIssues']);
+Route::get('get-support-categories',[SupportController::class, 'getSupportCategories']);
+Route::post('create-contact',[ContactController::class, 'createContact']);
+Route::get('get-contact-categories',[ContactController::class, 'getContactCategories']);
