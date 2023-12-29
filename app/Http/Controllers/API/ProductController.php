@@ -12,8 +12,8 @@ class ProductController extends Controller
     {
         try {
             $req = json_decode($request->getContent());
-            // $user = auth()->guard('api')->user();
-            // dd(!empty($req->manufacturer) ? $req->manufacturer : null);
+            $user = auth()->guard('api')->user();
+            
             if (ProductMaster::where('barcode', $req->barcode)->exists()) {
                 return response()->json(["statusCode" => 1, "message" => "Barcode already exists."], 200);
             }
