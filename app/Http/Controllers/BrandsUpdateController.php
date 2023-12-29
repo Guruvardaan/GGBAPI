@@ -36,27 +36,31 @@ class BrandsUpdateController extends Controller
             unset($ExcelData[0][0]); // unset for column head
             $ExcelRowData=$ExcelData[0];
             foreach($ExcelRowData as $row){
-                $brands = DB::table('brands')->where('name', '=', $row[5])->first();
-                if ($brands === null) { // insert new brand if not exist
-                    $brandID=DB::table('brands')->insertGetId(
-                        array(
-                               'status'     =>   1, 
-                               'name'   =>   $row[5],
-                               'created_by' =>'-1'
-                        )
-                   );
-                   if($brandID){ // update brand logo
-                    DB::table('brands')->where('idbrand',$brandID)->update(['logo' => $brandID.'.png']);
-                   }
-                }else{  // already exist brand ID
-                    $brandID=$brands->idbrand;
-                }
-                // product master update brand according to barcode
-                if($brandID){
-                    $is_update=DB::table('product_master')->where('barcode',$row[1])->update([
-                        'idbrand' => $brandID
-                    ]);
-                    DB::commit();
+                if($row[5]!=''){
+                    $brands = DB::table('brands')->where('name', '=', $row[5])->first();
+                    if ($brands === null) { // insert new brand if not exist
+                        $brandID=DB::table('brands')->insertGetId(
+                            array(
+                                'status'     =>   1, 
+                                'name'   =>   $row[5],
+                                'created_by' =>'-1'
+                            )
+                    );
+                    if($brandID){ // update brand logo
+                        DB::table('brands')->where('idbrand',$brandID)->update(['logo' => $brandID.'.png']);
+                    }
+                    }else{  // already exist brand ID
+                        $brandID=$brands->idbrand;
+                    }
+                    // product master update brand according to barcode
+                    if($brandID){
+                        $is_update=DB::table('product_master')->where('barcode',$row[1])->update([
+                            'idbrand' => $brandID
+                        ]);
+                        DB::commit();
+                    }else{
+                        $failedData[]=array(['barcode'=>$row[1],'brand'=>$row[5]]);
+                    }
                 }else{
                     $failedData[]=array(['barcode'=>$row[1],'brand'=>$row[5]]);
                 }
