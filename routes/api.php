@@ -11,6 +11,7 @@ use App\Http\Controllers\ReorderController;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\BrandsUpdateController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -55,3 +56,5 @@ Route::post('get-issues',[SupportController::class, 'getIssues']);
 Route::get('get-support-categories',[SupportController::class, 'getSupportCategories']);
 Route::post('create-contact',[ContactController::class, 'createContact']);
 Route::get('get-contact-categories',[ContactController::class, 'getContactCategories']);
+
+Route::post('upload-product-excel',[BrandsUpdateController::class, 'uploadProductExcel']);
