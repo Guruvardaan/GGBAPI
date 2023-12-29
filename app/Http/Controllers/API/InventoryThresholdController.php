@@ -346,7 +346,7 @@ class InventoryThresholdController extends Controller
             }
 
             $get_warehouse_wise_store = $this->formating_vedeor_wise_data($get_warehouse_wise_store);
-            // $this->get_sync_inventory_order($get_warehouse_wise_store);
+            $this->get_sync_inventory_order($get_warehouse_wise_store);
             return response()->json(["statusCode" => 0, "message" => "Thresold Product Order Placed Sucessfully.", "data" => $get_warehouse_wise_store], 200);         
         
         } catch(\Exception $e) {
