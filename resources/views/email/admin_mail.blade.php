@@ -55,10 +55,43 @@ img{
 
                                         <div class="ei-text">
                                             <h1 style="font-size: 14px; font-weight: 400; text-transform: capitalize; margin: 0px;text-align: start;">
-                                                Hi, {{$name}}
+                                                New inquery from {{$name}}
                                             </h1>
 
-                                            <p>Thank you for contact with us.</p>
+                                            <table>
+                                                <tr>
+                                                    <td>Name : </td>
+                                                    <td>{{$name}}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Mobile : </td>
+                                                    <td>{{$phone}}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Email : </td>
+                                                    <td>{{$email}}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Category : </td>
+                                                    <td>{{$category}}</td>
+                                                </tr>
+                                                @if(isset($sub_category))
+                                                <tr>
+                                                    <td>Sub Category : </td>
+                                                    <td>{{$sub_category}}</td>
+                                                </tr>
+                                                @endif
+                                                @if(isset($idcustomer_order))
+                                                <tr>
+                                                    <td>Order ID : </td>
+                                                    <td>{{$idcustomer_order}}</td>
+                                                </tr>
+                                                @endif
+                                                <tr>
+                                                    <td>Description : </td>
+                                                    <td>{{$description}}</td>
+                                                </tr>
+                                            </table>
                                         </div>
 
                                         <h1 style="color:#1e1e2d; font-weight:500; margin:0;font-size:17px;line-height: 1.5; margin-top:10px;font-family:'Rubik',sans-serif;text-align: start;display: none;">You're receiving this e-mail because someone is requesting for Expert Help.
