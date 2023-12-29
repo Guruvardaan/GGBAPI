@@ -8,6 +8,9 @@ use App\Http\Controllers\API\WarehouseReportController;
 use App\Http\Controllers\API\SystemReportController;
 use App\Http\Controllers\API\UpdateRecordController;
 use App\Http\Controllers\API\InventoryThresholdController;
+use App\Http\Controllers\API\InventoryController;
+use App\Http\Controllers\API\ProductController;
+use App\Http\Controllers\API\PackegeController;
 
 
 /*
@@ -58,3 +61,7 @@ Route::get('update-category-records', [UpdateRecordController::class, 'update_ca
 Route::get('update-sub-category-records', [UpdateRecordController::class, 'update_sub_category_records']);
 Route::get('update-sub-sub-category-records', [UpdateRecordController::class, 'update_sub_sub_category_records']);
 Route::get('update-brands-records', [UpdateRecordController::class, 'update_brands_records']);
+Route::post('storeInventory', [InventoryController::class, 'StoreInventory']);
+
+Route::post('add-product', [ProductController::class, 'store']);
+Route::post('add-store-package', [PackegeController::class, 'store']);
