@@ -62,12 +62,20 @@ class Helper
         return $productmaster;
     }
 
-    public static function getIssues($issue_id=''){
+    public static function getIssues($support_id=''){
         $issueDetail = Support::select();
-        if($issue_id!=''){
-            $issueDetail->where('id',$issue_id);
+        if($support_id!=''){
+            $issueDetail->where('id',$support_id);
         }
-        $issueDetails = $issueDetail->orderBy('id','desc')->get();
+        $issueDetails = $issueDetail->with('details')->orderBy('id','desc')->get();
+        return $issueDetails;
+    }
+    public static function getIssuesByCustomer($idcustomer=''){
+        $issueDetail = Support::select();
+        if($idcustomer!=''){
+            $issueDetail->where('idcustomer',$idcustomer);
+        }
+        $issueDetails = $issueDetail->with('details')->orderBy('id','desc')->get();
         return $issueDetails;
     }
     public static function getSupportCategories(){

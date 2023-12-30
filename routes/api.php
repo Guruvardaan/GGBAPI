@@ -52,7 +52,8 @@ Route::post('frequently-bought-products',[ProductsController::class, 'frequently
 Route::post('most-popular-products',[ProductsController::class, 'mostPopularProducts']);
 Route::post('deals-of-the-day-products',[ProductsController::class, 'dealsOfTheDayProducts']);
 Route::post('create-issue',[SupportController::class, 'createIssue']);
-Route::post('get-issues',[SupportController::class, 'getIssues']);
+Route::post('get-issues',[SupportController::class, 'getIssuesByID']);
+Route::post('get-customer-issues',[SupportController::class, 'getIssuesByCustomer']);
 Route::get('get-support-categories',[SupportController::class, 'getSupportCategories']);
 Route::post('create-contact',[ContactController::class, 'createContact']);
 Route::get('get-contact-categories',[ContactController::class, 'getContactCategories']);

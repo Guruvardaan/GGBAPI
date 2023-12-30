@@ -11,14 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('supports', function (Blueprint $table) {
+        Schema::create('support_images', function (Blueprint $table) {
             $table->id();
-            $table->integer('idcustomer')->nullable();
-            $table->integer('idcustomer_order')->nullable();
-            $table->string('title')->nullable();
-            $table->string('category')->nullable();
-            $table->integer('status')->default(0);
+            $table->integer('support_id')->default(1);
+            $table->unsignedBigInteger('support_detail_id');
+            $table->string('image')->nullable();
             $table->timestamps();
+            $table->foreign('support_detail_id')->references('id')->on('support_details')->onDelete('cascade');
         });
     }
 
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('supports');
+        Schema::dropIfExists('support_images');
     }
 };
