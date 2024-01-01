@@ -12,6 +12,8 @@ use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\BrandsUpdateController;
+use App\Http\Controllers\SlotsController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -59,3 +61,8 @@ Route::post('create-contact',[ContactController::class, 'createContact']);
 Route::get('get-contact-categories',[ContactController::class, 'getContactCategories']);
 
 Route::post('upload-product-excel',[BrandsUpdateController::class, 'uploadProductExcel']);
+
+Route::post('create-slot',[SlotsController::class, 'createSlots']);
+Route::post('update-slot',[SlotsController::class, 'updateSlots']);
+Route::post('get-slot',[SlotsController::class, 'getSlots']);
+Route::post('delete-slot',[SlotsController::class, 'destroySlot']);
