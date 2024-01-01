@@ -63,5 +63,8 @@ Route::get('update-sub-sub-category-records', [UpdateRecordController::class, 'u
 Route::get('update-brands-records', [UpdateRecordController::class, 'update_brands_records']);
 Route::post('storeInventory', [InventoryController::class, 'StoreInventory']);
 
+//add default inventory for billing
+Route::post('add-inventory', [ProductController::class, 'add_inventory_and_batch']);
+
 Route::post('add-product', [ProductController::class, 'store']);
 Route::post('add-store-package', [PackegeController::class, 'store']);
