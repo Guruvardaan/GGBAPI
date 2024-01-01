@@ -279,9 +279,14 @@ class InventoryThresholdController extends Controller
         $threshold_order = $get_data->get();
         
         foreach($threshold_order as $order) {
+            $order->name = $this->get_warehouse_name($order->idstore_warehouse);
+            $order->vedor_name = $this->get_vendor_name($order->idvendor);
+            $warehouse = DB::table('store_warehouse')->select('warehouse_connected')->where('idstore_warehouse', $order->idstore_warehouse)->first();
+            $order->warehouse = !empty($warehouse->warehouse_connected) ? $warehouse->warehouse_connected : '';
             $order_detail = $this->get_order_detail($order->idpurchase_order);
             $order->products = $order_detail;
-        }       
+        } 
+        $threshold_order = $this->data_formatting_vendor_store_wise($threshold_order);
         return response()->json(["statusCode" => 0, "message" => "success", "data" => $threshold_order], 200); 
     }
 
@@ -545,5 +550,63 @@ class InventoryThresholdController extends Controller
             $order['idpurchase_order'] = $order_id;
             $id = DB::table('purchase_order_detail')->insertGetId($order);
         }
+    }
+
+    public function data_formatting_vendor_store_wise($data)
+    {
+        $newStructure = [];
+
+        foreach ($data as $item) {
+            $warehouseId = $item->warehouse;
+            $orderId = $item->idpurchase_order;
+            $vendorId = $item->idvendor;
+            $storeWarehouseId = $item->idstore_warehouse;
+
+            if (!isset($newStructure[$warehouseId])) {
+                $newStructure[$warehouseId] = [
+                    'idstore_warehouse' => $warehouseId,
+                    'name' => $this->get_warehouse_name($warehouseId),
+                    'order' => []
+                ];
+            }
+
+            $orderIndex = array_search($orderId, array_column($newStructure[$warehouseId]['order'], 'idpurchase_order'));
+            if ($orderIndex === false) {
+                $newStructure[$warehouseId]['order'][] = [
+                    'idpurchase_order' => $orderId,
+                    'total_quantity' => $item->total_quantity,
+                    'vendor_store' => []
+                ];
+                $orderIndex = count($newStructure[$warehouseId]['order']) - 1;
+            }
+
+            $vendorIndex = array_search($vendorId, array_column($newStructure[$warehouseId]['order'][$orderIndex]['vendor_store'], 'idvendor'));
+            if ($vendorIndex === false) {
+                $newStructure[$warehouseId]['order'][$orderIndex]['vendor_store'][] = [
+                    'idvendor' => $vendorId,
+                    'vedor_name' => $item->vedor_name,
+                    'stores' => []
+                ];
+                $vendorIndex = count($newStructure[$warehouseId]['order'][$orderIndex]['vendor_store']) - 1;
+            }
+
+            $storeIndex = array_search($storeWarehouseId, array_column($newStructure[$warehouseId]['order'][$orderIndex]['vendor_store'][$vendorIndex]['stores'], 'idstore_warehouse'));
+            if ($storeIndex === false) {
+                $newStructure[$warehouseId]['order'][$orderIndex]['vendor_store'][$vendorIndex]['stores'][] = [
+                    'idstore_warehouse' => $storeWarehouseId,
+                    'name' => $item->name,
+                    'products' => $item->products
+                ];
+            }
+        }
+
+        $newStructure = array_values($newStructure);
+        return $newStructure;
+    }
+
+    public function get_vendor_name($id) 
+    {
+        $vendor = DB::table('vendor')->select('name')->where('idvendor', $id)->first();
+        return !empty($vendor->name) ? $vendor->name : '';
     }
 }
