@@ -66,3 +66,5 @@ Route::post('create-slot',[SlotsController::class, 'createSlots']);
 Route::post('update-slot',[SlotsController::class, 'updateSlots']);
 Route::post('get-slot',[SlotsController::class, 'getSlots']);
 Route::post('delete-slot',[SlotsController::class, 'destroySlot']);
+Route::post('create-bulk-slot',[SlotsController::class, 'createBulkSlots']);
+Route::post('update-slot-status',[SlotsController::class, 'updateSlotStatus']);
