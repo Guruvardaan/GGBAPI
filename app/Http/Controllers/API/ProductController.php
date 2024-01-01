@@ -48,25 +48,25 @@ class ProductController extends Controller
     {
         $idStore = $storeId;
         try {
-            $user = auth()->guard('api')->user();
-            if ($user->user_type === 'A') {
-                if ($storeId == 0) {
-                    throw new Exception("invalid store access");
-                }
-                $idStore = $storeId;
-            } else {
-                $userAccess = DB::table('staff_access')
-                    ->leftJoin('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
-                    ->select(
-                        'staff_access.idstore_warehouse',
-                        'staff_access.idstaff_access',
-                        'store_warehouse.is_store',
-                        'staff_access.idstaff'
-                    )
-                    ->where('staff_access.idstaff', $user->id)
-                    ->first();
-                $idStore = $userAccess->idstore_warehouse;
-            }
+            // $user = auth()->guard('api')->user();
+            // if ($user->user_type === 'A') {
+            //     if ($storeId == 0) {
+            //         throw new Exception("invalid store access");
+            //     }
+            //     $idStore = $storeId;
+            // } else {
+            //     $userAccess = DB::table('staff_access')
+            //         ->leftJoin('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            //         ->select(
+            //             'staff_access.idstore_warehouse',
+            //             'staff_access.idstaff_access',
+            //             'store_warehouse.is_store',
+            //             'staff_access.idstaff'
+            //         )
+            //         ->where('staff_access.idstaff', $user->id)
+            //         ->first();
+            //     $idStore = $userAccess->idstore_warehouse;
+            // }
 
 
             $productmaster = DB::table('product_master')
@@ -198,6 +198,18 @@ class ProductController extends Controller
     {
         $data = DB::table('product_batch')->where('idproduct_batch', $id)->where('status', 1)->get();
         return $data->last();        
+    }
+
+    public function get_default_inventory_product()
+    {
+        $get_data = DB::table('inventory')
+                    ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                    ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                    ->select('inventory.idinventory', 'product_master.idproduct_master', 'product_master.name', 'product_master.barcode', 'brands.name as brand_name', 'inventory.quantity')
+                    ->where('inventory.created_by', 6)
+                    ->get();
+        
+        return response()->json(["statusCode" => 1, 'message' => 'sucess', 'data' => $get_data], 200);        
     }
 
 }
