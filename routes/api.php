@@ -68,3 +68,6 @@ Route::post('get-slot',[SlotsController::class, 'getSlots']);
 Route::post('delete-slot',[SlotsController::class, 'destroySlot']);
 Route::post('create-bulk-slot',[SlotsController::class, 'createBulkSlots']);
 Route::post('update-slot-status',[SlotsController::class, 'updateSlotStatus']);
+
+Route::get('online-order-data',  [OrderController::class, 'getOnlineOrder']);
+Route::post('update-order-status',  [OrderController::class, 'updateOrderStatus']);

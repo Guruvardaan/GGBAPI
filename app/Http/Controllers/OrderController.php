@@ -8,6 +8,9 @@ use App\Models\User;
 use App\Models\Counter;
 use Illuminate\Http\Request;
 
+use DB;
+use Helper;
+
 class OrderController extends Controller
 {
     public function getUserData(Request $request)
@@ -53,6 +56,88 @@ class OrderController extends Controller
             } catch (\Exception $e) {
                 return response()->json(['error' => 'Failed to order data', 'details' => $e->getMessage()], 500);
             }
+        }
+    }
+    public function getOnlineOrder()
+    {
+        $user = auth()->guard('api')->user();
+        if($user){
+            $userAccess = DB::table('staff_access')
+                        ->leftJoin('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+                        ->select(
+                            'staff_access.idstore_warehouse',
+                            'staff_access.idstaff_access',
+                            'store_warehouse.is_store',
+                            'staff_access.idstaff'
+                        )
+                        ->where('staff_access.idstaff', $user->id)
+                        ->first();
+            $idstore_warehouse = $userAccess->idstore_warehouse;
+            
+            $order = Customer_order::where('idstore_warehouse', $idstore_warehouse)->where('is_online', 1)->orderBy('idcustomer_order','desc')->get();
+            $i=0;
+            $orderData=[];
+            foreach($order as $o){
+                $orderData[$i]=$o;
+                $orderDetails = order_detail::where('idcustomer_order', $o->idcustomer_order)->get();
+            
+                $productQuery = Helper::prepareProductQuery();
+                $Products = $productQuery->leftJoin('order_detail','product_master.idproduct_master','=','order_detail.idproduct_master')
+                ->selectRaw('order_detail.*,product_master.idbrand,brands.name AS brand,product_master.idproduct_master,product_master.idcategory,category.name AS category,product_master.idsub_category,sub_category.name AS scategory,product_master.idsub_sub_category,sub_sub_category.name AS sscategory,product_master.name AS prod_name,product_master.description,
+                product_master.barcode,product_master.hsn')
+                ->where('inventory.idstore_warehouse', $o->idstore_warehouse)
+                ->where('order_detail.idcustomer_order', $o->idcustomer_order)
+                ->get();
+
+                $orderData[$i]['order_detail']=$Products;
+                
+                $i++;
+            }
+            return response()->json([
+                'statusCode' => '0',
+                'message' => 'success',
+                'data'=>$orderData
+            ]);
+        }else{
+            return response()->json([
+                'statusCode' => '1',
+                'message' => 'user authentication required'
+            ]);
+        }
+    }
+    public function updateOrderStatus(Request $request)
+    {
+        $validator = \Validator::make($request->all(),[
+            'status' => 'required',
+            'idcustomer_order' => 'required',
+            'updated_by'=>'required'
+        ]);        
+        if ($validator->fails()) { 
+            $errors = $validator->errors();
+            return response()->json([
+                'statusCode' => '1',
+                'message' => 'All fields are required',
+                'data' => $errors->toJson()
+            ]);
+        }
+
+        try{            
+            $updateOrdStatus = DB::table('customer_order')->where('idcustomer_order',$request->idcustomer_order)->update([
+                'status'=>trim($request->status),'updated_by'=>trim($request->updated_by),'updated_at' => date('Y-m-d H:i:s')
+            ]);
+
+            // enable if update status of order details also
+            // $updateOrdDetStatus = DB::table('order_detail')->where('idcustomer_order',$request->idcustomer_order)->update([
+            //     'status'=>trim($request->status),'updated_by'=>trim($request->updated_by),'updated_at' => date('Y-m-d H:i:s')
+            // ]);
+            
+            return response()->json([
+                'statusCode' => '0',
+                'message' => 'success'
+            ]);
+        }
+        catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to update order status', 'details' => $e->getMessage()], 500);
         }
     }
 }
