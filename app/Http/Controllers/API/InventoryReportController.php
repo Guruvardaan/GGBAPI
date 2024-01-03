@@ -136,7 +136,7 @@ class InventoryReportController extends Controller
         }
     
         if($graph_type === 'brands') {
-            $inventories_data->rightJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
+            $inventories_data->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
             $inventories_data->select('product_master.idbrand','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
             $inventories_data->groupBy('product_master.idbrand','product_master.idproduct_master');
         }
@@ -241,8 +241,7 @@ class InventoryReportController extends Controller
     {
         $transformedData = [];
 
-        foreach ($data as $item) {
-            
+        foreach ($data as $item) {        
             if($graph_type === 'brands') {
                 $idbrand = $item->idbrand;
                 $brand_name = $this->get_name($idbrand, 'brands');  
@@ -304,6 +303,8 @@ class InventoryReportController extends Controller
             
 
             $transformedData[$key]['totals'][] = [
+                'idproduct_master' => !empty($item->idproduct_master) ? $item->idproduct_master : '',
+                'product_name' => !empty($item->product_name) ? $item->product_name : '',
                 'expired' => $item->expried,
                 'expiring_in_30days_amount' => $item->expiring_in_30_days,
                 'not_expired' => $item->not_expired,
