@@ -4,6 +4,7 @@ use DB;
 use App\Models\Support;
 use App\Models\SupportCategoryMaster;
 use App\Models\ContactCategoryMaster;
+use App\Models\ShippingChargeMaster;
 
 class Helper
 {
@@ -85,5 +86,17 @@ class Helper
     public static function getContactCategories(){
         $contact_categories = ContactCategoryMaster::where('status',1)->orderBy('id','asc')->with('subcategory')->get();
         return $contact_categories;
+    }
+
+    public static function getShippingCharge($orderAmount){
+        $chargedetails = ShippingChargeMaster::where('status',1)->orderBy('order_amount','asc')->get();
+        if($chargedetails){
+            foreach($chargedetails as $c){
+                if($c->order_amount>=$orderAmount){
+                    return $c->shipping_charge;
+                }
+            }
+        }
+        return 0;
     }
 }

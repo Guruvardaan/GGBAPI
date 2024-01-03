@@ -13,6 +13,7 @@ use App\Http\Controllers\SupportController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\BrandsUpdateController;
 use App\Http\Controllers\SlotsController;
+use App\Http\Controllers\ShippingChargeMasterController;
 
 /*
 |--------------------------------------------------------------------------
@@ -71,3 +72,7 @@ Route::post('update-slot-status',[SlotsController::class, 'updateSlotStatus']);
 
 Route::get('online-order-data',  [OrderController::class, 'getOnlineOrder']);
 Route::post('update-order-status',  [OrderController::class, 'updateOrderStatus']);
+Route::get('get-shipping-charge',  [ShippingChargeMasterController::class, 'getShippingCharge']);
+Route::post('create-shipping-charge',  [ShippingChargeMasterController::class, 'createShippingCharge']);
+Route::post('update-shipping-charge',  [ShippingChargeMasterController::class, 'updateShippingCharge']);
+Route::post('delete-shipping-charge',  [ShippingChargeMasterController::class, 'deleteShippingCharge']);
