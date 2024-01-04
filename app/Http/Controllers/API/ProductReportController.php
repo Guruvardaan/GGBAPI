@@ -73,12 +73,13 @@ class ProductReportController extends Controller
             $products = $productmaster->get();
 
             foreach($products as $product)
-            {   
-                $product->selling_margin_percentage = round(($product->selling_price - $product->purchase_price) / $product->selling_price * 100, 2);
-                $product->selling_margin_rupees = $product->selling_price - $product->purchase_price;
-                $product_price = $product->mrp - round($product->mrp  - $product->mrp * (100/(100 + ($product->cgst + $product->igst + $product->sgst))), 2); 
-                $product->purchase_margin_percentage  = round(($product_price - $product->purchase_price) / $product_price * 100, 2);
-                $product->purchase_margin_rupees = $product_price - $product->purchase_price;
+            {   $product->selling_margin_rupees = $product->mrp - $product->selling_price;
+                $product->selling_margin_percentage = ($product->selling_margin_rupees !== 0) ? ($product->selling_margin_rupees/$product->mrp) * 100 : 0;
+                $cgst = !empty($product->cgst) ? $product->cgst : 0;
+                $sgst = !empty($product->sgst) ? $product->sgst : 0;
+                $gst = $cgst + $sgst;
+                $product->purchase_margin_rupees = !empty($gst) ? $product->mrp - ($product->purchase_price +  (($product->purchase_price * $gst)/100)) : $product->mrp - $product->purchase_price;
+                $product->purchase_margin_percentage = !empty($product->purchase_margin_rupees) ? ($product->purchase_margin_rupees *  $product->mrp)/ 100 : 0;
             }
             return response()->json(["statusCode" => 0, "message" => "Success", "data" => $products], 200);
         } catch (Exception $e) {
