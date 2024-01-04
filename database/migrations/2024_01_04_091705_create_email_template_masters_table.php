@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('email_template_masters', function (Blueprint $table) {
             $table->id();
             $table->string('name')->nullable();
+            $table->string('subject')->nullable();
             $table->text('body')->nullable();
             $table->integer('status')->default(1);
             $table->integer('created_by')->nullable();

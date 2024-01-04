@@ -6,11 +6,14 @@ use App\Models\emailTemplateMaster;
 use Illuminate\Http\Request;
 use Illuminate\Contracts\Validation\Validator;
 use DB;
+use Helper;
 
 class EmailTemplateMasterController extends Controller
 {
     public function getemailTemplate()
     {
+        //$arry= Helper::getEmailtemplateData(1,['otp'=>123456,'amount'=>450,'name'=>'Archan']);  // function for get email template data with replaced variables
+        //print_r($arry);exit;
         try {
             $emailTemplate = emailTemplateMaster::where('status',1)->get();
             
@@ -28,6 +31,7 @@ class EmailTemplateMasterController extends Controller
     {
         $validator = \Validator::make($request->all(),[
             'name'=>'required',
+            'subject'=>'required',
             'body'=>'required',
             'created_by' => 'required'
         ]);
@@ -43,6 +47,7 @@ class EmailTemplateMasterController extends Controller
         try{
             $createRaw = emailTemplateMaster::create([
                 'name' => $request->name,
+                'subject' => $request->subject,
                 'body' => $request->body,
                 'created_by'=>$request->created_by
             ]);
@@ -60,6 +65,7 @@ class EmailTemplateMasterController extends Controller
     {
         $validator = \Validator::make($request->all(),[
             'name'=>'required',
+            'subject'=>'required',
             'body'=>'required',
             'updated_by' => 'required',
             'template_id' => 'required',
@@ -78,7 +84,7 @@ class EmailTemplateMasterController extends Controller
             $template_id = $request->input('template_id');
             
             $update_charge = emailTemplateMaster::where('id',$template_id)->update([
-                'name'=>$request->name,'body'=>$request->body,'updated_by'=>$request->updated_by
+                'name'=>$request->name,'subject'=>$request->subject,'body'=>$request->body,'updated_by'=>$request->updated_by
             ]);
             
             if($request->input('status') !=''){

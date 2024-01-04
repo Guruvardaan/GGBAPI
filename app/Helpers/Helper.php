@@ -5,6 +5,8 @@ use App\Models\Support;
 use App\Models\SupportCategoryMaster;
 use App\Models\ContactCategoryMaster;
 use App\Models\ShippingChargeMaster;
+use App\Models\smsTemplateMaster;
+use App\Models\emailTemplateMaster;
 
 class Helper
 {
@@ -98,5 +100,33 @@ class Helper
             }
         }
         return 0;
+    }
+    public static function getSMStemplateData($template_id,$variables){
+        $smsTemplate=smsTemplateMaster::where('id',$template_id)->where('status',1)->first();
+        if($smsTemplate){
+            $template_content = $smsTemplate->body;
+            foreach($variables as $var=>$val) {
+                $template_content = str_replace('{'.$var.'}', $val, $template_content);
+            }
+            return $template_content;
+        }
+    }
+
+    public static function getEmailtemplateData($template_id,$variables){
+        $emailTemplate=emailTemplateMaster::where('id',$template_id)->where('status',1)->first();
+        if($emailTemplate){
+            $emailData=[];
+
+            $subject = $emailTemplate->subject;          
+            $template_content = $emailTemplate->body;
+            foreach($variables as $var=>$val) {
+                $template_content = str_replace('{'.$var.'}', $val, $template_content);
+                $subject = str_replace('{'.$var.'}', $val, $subject);
+            }
+            $emailData['subject']=$subject;
+            $emailData['body']=$template_content;
+
+            return $emailData;
+        }
     }
 }

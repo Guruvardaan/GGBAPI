@@ -6,11 +6,13 @@ use App\Models\smsTemplateMaster;
 use Illuminate\Http\Request;
 use Illuminate\Contracts\Validation\Validator;
 use DB;
+use Helper;
 
 class SmsTemplateMasterController extends Controller
 {
     public function getsmsTemplate()
     {
+        //echo Helper::getSMStemplateData(1,['otp'=>123456,'amount'=>450]); exit; // function for get sms template data with replaced variables
         try {
             $smsTemplate = smsTemplateMaster::where('status',1)->get();
             
