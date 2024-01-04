@@ -12,7 +12,7 @@ class EmailTemplateMasterController extends Controller
 {
     public function getemailTemplate()
     {
-        //$arry= Helper::getEmailtemplateData(1,['otp'=>123456,'amount'=>450,'name'=>'Archan']);  // function for get email template data with replaced variables
+        //$arry= Helper::sendEmailWithtemplateData(1,1,['otp'=>123456,'amount'=>450,'name'=>'Archan']);  // sendEmailWithtemplateData(template_id,idcustomer,array());function for get email template data with replaced variables
         //print_r($arry);exit;
         try {
             $emailTemplate = emailTemplateMaster::where('status',1)->get();

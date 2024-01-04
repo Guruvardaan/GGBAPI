@@ -12,7 +12,7 @@ class SmsTemplateMasterController extends Controller
 {
     public function getsmsTemplate()
     {
-        //echo Helper::getSMStemplateData(1,['otp'=>123456,'amount'=>450]); exit; // function for get sms template data with replaced variables
+        //echo Helper::sendSMSWithtemplateData(1,1,['otp'=>123456,'amount'=>450]); exit; // sendSMSWithtemplateData(template_id,idcustomer,array());function for get sms template data with replaced variables
         try {
             $smsTemplate = smsTemplateMaster::where('status',1)->get();
             

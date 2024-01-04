@@ -7,6 +7,7 @@ use App\Models\ContactCategoryMaster;
 use App\Models\ShippingChargeMaster;
 use App\Models\smsTemplateMaster;
 use App\Models\emailTemplateMaster;
+use Mail;
 
 class Helper
 {
@@ -101,8 +102,9 @@ class Helper
         }
         return 0;
     }
-    public static function getSMStemplateData($template_id,$variables){
+    public static function sendSMSWithtemplateData($template_id,$idcustomer,$variables){
         $smsTemplate=smsTemplateMaster::where('id',$template_id)->where('status',1)->first();
+        $userinfo=DB::table('users')->where('id',$idcustomer)->first();
         if($smsTemplate){
             $template_content = $smsTemplate->body;
             foreach($variables as $var=>$val) {
@@ -112,21 +114,48 @@ class Helper
         }
     }
 
-    public static function getEmailtemplateData($template_id,$variables){
+    public static function sendEmailWithtemplateData($template_id,$idcustomer,$variables){
         $emailTemplate=emailTemplateMaster::where('id',$template_id)->where('status',1)->first();
         if($emailTemplate){
             $emailData=[];
+            $userinfo=DB::table('users')->where('id',$idcustomer)->first();
+            if($userinfo){
+                $subject = $emailTemplate->subject;          
+                $template_content = $emailTemplate->body;
+                foreach($variables as $var=>$val) {
+                    $template_content = str_replace('{'.$var.'}', $val, $template_content);
+                    $subject = str_replace('{'.$var.'}', $val, $subject);
+                }
+                
+                $data = array('subject'=>$subject,'email'=>$userinfo->email,'body_text'=>$template_content);
 
-            $subject = $emailTemplate->subject;          
-            $template_content = $emailTemplate->body;
-            foreach($variables as $var=>$val) {
-                $template_content = str_replace('{'.$var.'}', $val, $template_content);
-                $subject = str_replace('{'.$var.'}', $val, $subject);
+                // send email
+                $send=Mail::send('email/template', $data, function($message) use ($data) {
+                    $message->to($data['email'])->subject($data['subject']);
+                    $message->from(env('MAIL_FROM_ADDRESS'),env('MAIL_FROM_NAME'));
+                });
+                if($send){
+                    return [
+                        'statusCode' => '0',
+                        'message' => 'success'
+                    ];
+                }else{
+                    return [
+                        'statusCode' => '1',
+                        'message' => 'email sending failed'
+                    ];
+                }
+            }else{
+                return [
+                    'statusCode' => '1',
+                    'message' => 'no user data found'
+                ];
             }
-            $emailData['subject']=$subject;
-            $emailData['body']=$template_content;
-
-            return $emailData;
+        }else{
+            return [
+                'statusCode' => '1',
+                'message' => 'no template data found'
+            ];
         }
     }
 }
