@@ -14,6 +14,8 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\BrandsUpdateController;
 use App\Http\Controllers\SlotsController;
 use App\Http\Controllers\ShippingChargeMasterController;
+use App\Http\Controllers\SmsTemplateMasterController;
+use App\Http\Controllers\EmailTemplateMasterController;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,3 +78,13 @@ Route::get('get-shipping-charge',  [ShippingChargeMasterController::class, 'getS
 Route::post('create-shipping-charge',  [ShippingChargeMasterController::class, 'createShippingCharge']);
 Route::post('update-shipping-charge',  [ShippingChargeMasterController::class, 'updateShippingCharge']);
 Route::post('delete-shipping-charge',  [ShippingChargeMasterController::class, 'deleteShippingCharge']);
+
+Route::get('get-sms-template',  [SmsTemplateMasterController::class, 'getsmsTemplate']);
+Route::post('create-sms-template',  [SmsTemplateMasterController::class, 'createsmsTemplate']);
+Route::post('update-sms-template',  [SmsTemplateMasterController::class, 'updatesmsTemplate']);
+Route::post('delete-sms-template',  [SmsTemplateMasterController::class, 'deletesmsTemplate']);
+
+Route::get('get-email-template',  [EmailTemplateMasterController::class, 'getemailTemplate']);
+Route::post('create-email-template',  [EmailTemplateMasterController::class, 'createemailTemplate']);
+Route::post('update-email-template',  [EmailTemplateMasterController::class, 'updateemailTemplate']);
+Route::post('delete-email-template',  [EmailTemplateMasterController::class, 'deleteemailTemplate']);
