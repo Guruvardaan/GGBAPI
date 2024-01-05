@@ -10,14 +10,18 @@ class InventoryReportController extends Controller
 {
     public function get_inventory_report(Request $request)
     {
+        ini_set('max_execution_time', 14000);
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $limit = !empty($request->limit) ? $request->limit : 50;
+
+        $product_with_distinct_barcode = $this->get_product_with_distinct_barcode();
 
         $inventories_data = DB::table('inventory')
                             ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', '=', 'inventory.idstore_warehouse')
                             ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
-                            ->select('store_warehouse.idstore_warehouse', 'product_master.idproduct_master', 'inventory.quantity As total_quantity');
-
+                            ->select('store_warehouse.idstore_warehouse', 'product_master.idproduct_master', 'inventory.quantity As total_quantity')
+                            ->whereIn('product_master.idproduct_master', $product_with_distinct_barcode);
         if(!empty($request->idstore_warehouse)) {
             $inventories_data->where('store_warehouse.idstore_warehouse', $request->idstore_warehouse);
         }       
@@ -26,7 +30,7 @@ class InventoryReportController extends Controller
             $inventories_data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
 
-        $inventories = $inventories_data->get();
+        $inventories = $inventories_data->paginate($limit);
         
         foreach($inventories as $inventory) {
             if(!empty($inventory->idproduct_master)) {
@@ -53,18 +57,48 @@ class InventoryReportController extends Controller
                     $inventory->brands = $product_data->brands_name;
                 }
             }
-        }              
-                            
-        // foreach($inventories as $inventory) {
-        //     $productData = $this->get_product_name_and_barcode($inventory->idproduct_master);
-        //     $inventory->product_name = $productData['name'];
-        //     $inventory->product_barcode = $productData['barcode'];
-        //     $quantity = $this->get_product_quantity($inventory->idproduct_master);
-        //     $inventory->total_quantity = $quantity['quantity'] + $inventory->selled_quantity;
-        //     $inventory->remaining_quanity = $inventory->total_quantity - $inventory->selled_quantity;
-        // }               
+        }                            
         
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventories], 200);
+    }
+
+    public function get_product_with_distinct_barcode()
+    {
+        $all_products =  DB::table('product_master')->select('idproduct_master', 'barcode')->where('barcode', '<>', '')->get();
+        $product_array = [];
+        foreach($all_products as $key => $product){
+            $product_array[$key]['idproduct_master'] = $product->idproduct_master;
+            $product_array[$key]['barcode'] = $product->barcode;
+        }
+        $products = $this->removeDuplicates($product_array, 'barcode');
+        $product_ids = [];
+        foreach($products as $product) {
+            $product_ids[] = $product['idproduct_master'];
+        }
+        
+        $all_products_without_barcode =  DB::table('product_master')->select('idproduct_master')->where('barcode','')->get();
+        foreach($all_products_without_barcode as $product) {
+            $product_ids[] = $product->idproduct_master;
+        }
+
+        return $product_ids;
+    }
+
+    function removeDuplicates($array, $key)
+    {
+        $uniqueArray = [];
+        $seenValues = [];
+    
+        foreach ($array as $item) {
+            $value = $item[$key];
+    
+            if (!in_array($value, $seenValues)) {
+                $uniqueArray[] = $item;
+                $seenValues[] = $value;
+            }
+        }
+    
+        return $uniqueArray;
     }
 
     public function get_product_quantity($id)
