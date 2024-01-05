@@ -11,6 +11,8 @@ use App\Http\Controllers\API\InventoryThresholdController;
 use App\Http\Controllers\API\InventoryController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\PackegeController;
+use App\Http\Controllers\API\GstReportController;
+use App\Http\Controllers\API\ExcelController;
 
 
 /*
@@ -70,3 +72,10 @@ Route::get('default-inventory', [ProductController::class, 'get_default_inventor
 
 Route::post('add-product', [ProductController::class, 'store']);
 Route::post('add-store-package', [PackegeController::class, 'store']);
+
+//GST Report
+Route::get('gstr1', [GstReportController::class, 'get_gstr1']);
+Route::get('gstr2', [GstReportController::class, 'get_gstr2']);
+Route::get('gstr1-detail', [GstReportController::class, 'customer_order_artical_wise']);
+Route::get('download-excel-gstr1/{year}/{month}/{last_six_month?}', [ExcelController::class, 'download_excel_gstr1']);
+Route::get('download-excel-gstr2/{year}/{month}/{last_six_month?}', [ExcelController::class, 'download_excel_gstr2']);
