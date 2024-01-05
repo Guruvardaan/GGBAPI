@@ -16,6 +16,8 @@ use App\Http\Controllers\SlotsController;
 use App\Http\Controllers\ShippingChargeMasterController;
 use App\Http\Controllers\SmsTemplateMasterController;
 use App\Http\Controllers\EmailTemplateMasterController;
+use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\StockTransferController;
 
 /*
 |--------------------------------------------------------------------------
@@ -88,3 +90,6 @@ Route::get('get-email-template',  [EmailTemplateMasterController::class, 'getema
 Route::post('create-email-template',  [EmailTemplateMasterController::class, 'createemailTemplate']);
 Route::post('update-email-template',  [EmailTemplateMasterController::class, 'updateemailTemplate']);
 Route::post('delete-email-template',  [EmailTemplateMasterController::class, 'deleteemailTemplate']);
+
+Route::post('get-purchase',  [PurchaseController::class, 'getPurchases']);
+Route::post('stock-transfer',  [StockTransferController::class, 'stockTransfer']);
