@@ -728,4 +728,35 @@ class Helper
                         ->get();
         return $order_detail;                 
     }
+
+    public static function get_purchase_data($start_date, $end_date)
+    {
+        $get_purchase_order_data = DB::table('purchase_order')
+                              ->leftJoin('vendor', 'vendor.idvendor', '=', 'purchase_order.idvendor')
+                              ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', '=', 'purchase_order.idstore_warehouse')
+                              ->select('purchase_order.id as idpurchase_order', 'vendor.name as vendor_name', 'store_warehouse.name as warehouse_name', 'purchase_order.total_quantity', 'purchase_order.created_at as order_date');
+        
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $get_purchase_order_data->whereBetween('purchase_order.created_at',[$start_date, $end_date]);
+        }
+        $get_purchase_order = $get_purchase_order_data->get();
+        
+        foreach($get_purchase_order as $order) {
+            $date = Carbon::parse($order->order_date);
+            $order->order_date = $date->format('d-M-y');
+            $order_detail = self::get_order_detail($order->idpurchase_order);
+            $order->products = !empty($order_detail->toArray()) ? $order_detail : [];
+        }
+        return $get_purchase_order;
+    }
+
+    public static function get_order_detail($id)
+    {
+        $order_detail = DB::table('purchase_order_detail')
+                        ->leftJoin('product_master', 'product_master.idproduct_master', 'purchase_order_detail.idproduct_master')
+                        ->select('product_master.name', 'product_master.barcode', 'purchase_order_detail.quantity')
+                        ->where('idpurchase_order', $id)
+                        ->get();
+        return $order_detail;                
+    }
 }
