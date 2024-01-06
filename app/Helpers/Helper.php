@@ -391,15 +391,15 @@ class Helper
                 $sgst_amount = !empty($product->SGST) ? ($product->amount * $product->SGST)/100 : 0;
                 $cgst_amount = !empty($product->CGST) ? ($product->amount * $product->CGST)/100 : 0;
                 $taxable_amount = $product->amount - $cgst_amount - $sgst_amount;
-                $product_data[$key]['taxable_amount'] = $taxable_amount;
+                $product_data[$key]['taxable_amount'] = round($taxable_amount, 2);
                 $product_data[$key]['SGST_pr'] = $product->SGST;
-                $product_data[$key]['SGST_amount'] = $sgst_amount;
+                $product_data[$key]['SGST_amount'] = round($sgst_amount, 2);
                 $product_data[$key]['CGST_pr'] = $product->CGST;
-                $product_data[$key]['CGST_amount'] = $cgst_amount;
+                $product_data[$key]['CGST_amount'] = round($cgst_amount, 2);
                 $product_data[$key]['IGST_pr'] = 0.00;
                 $product_data[$key]['IGST_amount'] = 0.00;
                 $product_data[$key]['cess'] = 0.00;
-                $product_data[$key]['total_gst'] = $sgst_amount + $sgst_amount;
+                $product_data[$key]['total_gst'] = round($sgst_amount + $sgst_amount, 2);
                 $total_quantity += $product->quantity;
                 $total_amount += $product->amount;
                 $total_taxable_amount += $taxable_amount;
@@ -410,14 +410,14 @@ class Helper
             $order->products = $product_data;
         }    
         $total = [
-            'total_quantity' => $total_quantity,
-            'total_amount' => $total_amount,
-            'total_taxable_amount' => $total_taxable_amount,
-            'total_taxable_amount' => $total_sgst,
-            'total_cgst' => $total_cgst,
-            'total_igst' => $total_igst,
-            'total_cess' => $total_cess,
-            'total_gst' => $total_gst,
+            'total_quantity' => round($total_quantity, 2),
+            'total_amount' => round($total_amount, 2),
+            'total_taxable_amount' => round($total_taxable_amount, 2),
+            'total_taxable_amount' => round($total_sgst, 2),
+            'total_cgst' => round($total_cgst, 2),
+            'total_igst' => round($total_igst, 2),
+            'total_cess' => round($total_cess, 2),
+            'total_gst' => round($total_gst, 2),
         ];
         if(!empty($B2C_invoice->toArray())) {
             $B2C_invoice['total'] = $total;
@@ -486,7 +486,7 @@ class Helper
                 $sgst_amount = !empty($product->SGST) ? ($product->amount * $product->SGST)/100 : 0;
                 $cgst_amount = !empty($product->CGST) ? ($product->amount * $product->CGST)/100 : 0;
                 $taxable_amount = $product->amount - $cgst_amount - $sgst_amount;
-                $product_data[$key]['taxable_amount'] = $taxable_amount;
+                $product_data[$key]['taxable_amount'] = round($taxable_amount, 2);
                 $product_data[$key]['SGST_pr'] = $product->SGST;
                 $product_data[$key]['SGST_amount'] = $sgst_amount;
                 $product_data[$key]['CGST_pr'] = $product->CGST;
@@ -505,14 +505,14 @@ class Helper
             $order->products = $product_data;
         }    
         $total = [
-            'total_quantity' => $total_quantity,
-            'total_amount' => $total_amount,
-            'total_taxable_amount' => $total_taxable_amount,
-            'total_taxable_amount' => $total_sgst,
-            'total_cgst' => $total_cgst,
-            'total_igst' => $total_igst,
-            'total_cess' => $total_cess,
-            'total_gst' => $total_gst,
+            'total_quantity' => round($total_quantity, 2),
+            'total_amount' => round($total_amount, 2),
+            'total_taxable_amount' => round($total_taxable_amount, 2),
+            'total_taxable_amount' => round($total_sgst, 2),
+            'total_cgst' => round($total_cgst, 2),
+            'total_igst' => round($total_igst, 2),
+            'total_cess' => round($total_cess, 2),
+            'total_gst' => round($total_gst, 2),
         ];
         $nil_reted_data = [];
         foreach($nil_reted as $order)
@@ -537,5 +537,195 @@ class Helper
                         ->where('total_cgst', '=', 0)
                         ->get();
         return $order_detail;                
+    }
+
+    public static function get_b2b_purchase_invoice($year, $month, $start_date, $end_date)
+    {
+        $b2b_invoices_data = DB::table('vendor_purchases')
+                        ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
+                        ->select('vendor.name as desc', 'vendor_purchases.created_at as invoice_date', 'vendor_purchases.bill_number as invoice_no', 'vendor.gst as gstin', 'vendor_purchases.idvendor_purchases');
+        
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $b2b_invoices_data->whereBetween('vendor_purchases.created_at',[$start_date, $end_date]);
+        } else {
+            $b2b_invoices_data->whereYear('vendor_purchases.created_at', $year);
+            $b2b_invoices_data->whereMonth('vendor_purchases.created_at', $month);
+        } 
+        $b2b_invoices = $b2b_invoices_data->get();
+
+        $total_quantity = 0.00;
+        $total_amount = 0.00;
+        $total_taxable_amount = 0.00;
+        $total_sgst = 0.00;
+        $total_cgst = 0.00;
+        $total_igst = 0.00;
+        $total_cess = 0.00;
+        $total_gst = 0.00;
+        foreach($b2b_invoices as $order)
+        {
+            $date = Carbon::parse($order->invoice_date);
+            $order->invoice_date = $date->format('d-M-y');
+            $order->desc = !empty($order->desc) ? $order->desc : 'Cash Sales and Purchase';
+            $products = self::get_order_detail_b2b_invoice($order->idvendor_purchases);
+            $product_data = [];
+            $invoce_value = 0;
+            foreach($products as $key => $product){
+                $product_data[$key]['HSN_code'] = $product->HSN_code;
+                $product_data[$key]['quantity'] = $product->quantity;
+                $sgst_amount = !empty($product->SGST) ? ($product->taxable_amount * $product->SGST)/100 : 0;
+                $cgst_amount = !empty($product->CGST) ? ($product->taxable_amount * $product->CGST)/100 : 0;
+                $amount = $product->taxable_amount +  $cgst_amount + $sgst_amount;
+                $product_data[$key]['amount'] = round($amount, 2);
+                $product_data[$key]['taxable_amount'] = round($product->taxable_amount, 2);
+                $product_data[$key]['SGST_pr'] = $product->SGST;
+                $product_data[$key]['SGST_amount'] = round($sgst_amount, 2);
+                $product_data[$key]['CGST_pr'] = $product->CGST;
+                $product_data[$key]['CGST_amount'] = round($cgst_amount, 2);
+                $product_data[$key]['IGST_pr'] = 0.00;
+                $product_data[$key]['IGST_amount'] = 0.00;
+                $product_data[$key]['cess'] = 0.00;
+                $product_data[$key]['total_gst'] = round($sgst_amount + $sgst_amount, 0);
+                $total_quantity += $product->quantity;
+                $total_amount += $amount;
+                $total_taxable_amount += $product->taxable_amount;
+                $total_sgst += $sgst_amount;
+                $total_cgst += $cgst_amount;
+                $total_gst += $sgst_amount + $sgst_amount;
+                $invoce_value += $amount;
+            }
+            $order->invoice_value = round($invoce_value, 2);
+            $order->local_or_central = 'Local';
+            $order->invoice_type = 'Inventory';
+            $order->GSTIN = !empty($order->gstin) ? $order->gstin : '';
+            $order->products = $product_data;
+        }
+
+        $total = [
+            'total_quantity' => round($total_quantity, 2),
+            'total_amount' => round($total_amount, 2),
+            'total_taxable_amount' => round($total_taxable_amount, 2),
+            'total_taxable_amount' => round($total_sgst, 2),
+            'total_cgst' => round($total_cgst, 2),
+            'total_igst' => round($total_igst, 2),
+            'total_cess' => round($total_cess, 2),
+            'total_gst' => round($total_gst, 2),
+        ];
+
+        if(!empty($b2b_invoices->toArray())) {
+            $b2b_invoices['total'] = $total;
+        }
+
+        return $b2b_invoices;
+    }
+
+    public static function get_order_detail_b2b_invoice($id)
+    {
+        $order_detail = DB::table('vendor_purchases_detail')
+                        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                        ->select('vendor_purchases_detail.hsn as HSN_code', 'vendor_purchases_detail.quantity', 'vendor_purchases_detail.unit_purchase_price as taxable_amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
+                        ->where('vendor_purchases_detail.idvendor_purchases', $id)
+                        ->where('product_master.sgst', '<>', 0)
+                        ->where('product_master.cgst', '<>', 0)
+                        ->get();
+        return $order_detail;                 
+    }
+
+    public static function get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date)
+    {
+        $b2b_nil_reted_invoices_data = DB::table('vendor_purchases')
+                        ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
+                        ->select('vendor.name as desc', 'vendor_purchases.created_at as invoice_date', 'vendor_purchases.bill_number as invoice_no', 'vendor.gst as gstin', 'vendor_purchases.idvendor_purchases');
+
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $b2b_nil_reted_invoices_data->whereBetween('vendor_purchases.created_at',[$start_date, $end_date]);
+        } else {
+            $b2b_nil_reted_invoices_data->whereYear('vendor_purchases.created_at', $year);
+            $b2b_nil_reted_invoices_data->whereMonth('vendor_purchases.created_at', $month);
+        } 
+        $b2b_nil_reted_invoices = $b2b_nil_reted_invoices_data->get();
+
+        $total_quantity = 0.00;
+        $total_amount = 0.00;
+        $total_taxable_amount = 0.00;
+        $total_sgst = 0.00;
+        $total_cgst = 0.00;
+        $total_igst = 0.00;
+        $total_cess = 0.00;
+        $total_gst = 0.00;
+        foreach($b2b_nil_reted_invoices as $order)
+        {
+            $date = Carbon::parse($order->invoice_date);
+            $order->invoice_date = $date->format('d-M-y');
+            $order->desc = !empty($order->desc) ? $order->desc : 'Cash Sales and Purchase';
+            $products = self::get_order_detail_b2b_nil_reted_invoice($order->idvendor_purchases);
+            $product_data = [];
+            $invoce_value = 0;
+            foreach($products as $key => $product){
+                $product_data[$key]['HSN_code'] = $product->HSN_code;
+                $product_data[$key]['quantity'] = $product->quantity;
+                $sgst_amount = !empty($product->SGST) ? ($product->taxable_amount * $product->SGST)/100 : 0;
+                $cgst_amount = !empty($product->CGST) ? ($product->taxable_amount * $product->CGST)/100 : 0;
+                $amount = $product->taxable_amount +  $cgst_amount + $sgst_amount;
+                $product_data[$key]['amount'] = round($amount, 2);
+                $product_data[$key]['taxable_amount'] = round($product->taxable_amount, 2);
+                $product_data[$key]['SGST_pr'] = $product->SGST;
+                $product_data[$key]['SGST_amount'] = round($sgst_amount, 2);
+                $product_data[$key]['CGST_pr'] = $product->CGST;
+                $product_data[$key]['CGST_amount'] = round($cgst_amount, 2);
+                $product_data[$key]['IGST_pr'] = 0.00;
+                $product_data[$key]['IGST_amount'] = 0.00;
+                $product_data[$key]['cess'] = 0.00;
+                $product_data[$key]['total_gst'] = round($sgst_amount + $sgst_amount, 0);
+                $total_quantity += $product->quantity;
+                $total_amount += $amount;
+                $total_taxable_amount += $product->taxable_amount;
+                $total_sgst += $sgst_amount;
+                $total_cgst += $cgst_amount;
+                $total_gst += $sgst_amount + $sgst_amount;
+                $invoce_value += $amount;
+            }
+            $order->invoice_value = round($invoce_value, 2);
+            $order->local_or_central = 'Local';
+            $order->invoice_type = 'Inventory';
+            $order->GSTIN = !empty($order->gstin) ? $order->gstin : '';
+            $order->products = $product_data;
+        }
+
+        $total = [
+            'total_quantity' => round($total_quantity, 2),
+            'total_amount' => round($total_amount, 2),
+            'total_taxable_amount' => round($total_taxable_amount, 2),
+            'total_taxable_amount' => round($total_sgst, 2),
+            'total_cgst' => round($total_cgst, 2),
+            'total_igst' => round($total_igst, 2),
+            'total_cess' => round($total_cess, 2),
+            'total_gst' => round($total_gst, 2),
+        ];
+
+        $b2b_nil_reted_invoices_data = [];
+        foreach($b2b_nil_reted_invoices as $order)
+        {
+            if(!empty($order->products)){
+                $b2b_nil_reted_invoices_data[] = $order;
+            }
+        }
+
+        if(!empty($b2b_nil_reted_invoices->toArray())) {
+            $b2b_nil_reted_invoices_data['total'] = $total;
+        }
+
+        return $b2b_nil_reted_invoices_data;
+    }
+
+    public static function get_order_detail_b2b_nil_reted_invoice($id)
+    {
+        $order_detail = DB::table('vendor_purchases_detail')
+                        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                        ->select('vendor_purchases_detail.hsn as HSN_code', 'vendor_purchases_detail.quantity', 'vendor_purchases_detail.unit_purchase_price as taxable_amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
+                        ->where('vendor_purchases_detail.idvendor_purchases', $id)
+                        ->where('product_master.sgst', 0)
+                        ->where('product_master.cgst', 0)
+                        ->get();
+        return $order_detail;                 
     }
 }

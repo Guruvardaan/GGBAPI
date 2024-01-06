@@ -98,58 +98,61 @@ class GstReportController extends Controller
         return response()->json(["statusCode" => 1, 'message' => 'sucess', 'data' => $data], 200);                   
     }
     
-    public function get_order_detail_b2c_invoice($id)
+    public function purchase_order_artical_wise()
     {
-        $order_detail = DB::table('order_detail')
-                        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
-                        ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'order_detail.total_sgst as SGST', 'order_detail.total_cgst as CGST')
-                        ->where('order_detail.idcustomer_order', $id)
-                        ->where('total_sgst', '<>', 0)
-                        ->where('total_cgst', '<>', 0)
-                        ->get();
-        return $order_detail;                
-    }
+        $year = !empty($_GET['year']) ? $_GET['year'] : now()->year;
+        $month = !empty($_GET['month']) ? $_GET['month'] : now()->month;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
 
-    public function filter_customer_order_data($data)
-    {
-        $b2bSmallInvoice = [];
-        $nilRated = [];
-        $t = [];
+        $b2b_purchase_invoice = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date);
+        $nil_reted_invoice = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date);
+        $data['b2b_other_taxable_invoices'] = $b2b_purchase_invoice;
+        $data['import_of_goods_invoices'] = [];
+        $data['import_of_services_invoices'] = [];
+        $data['nil_reted'] = $nil_reted_invoice;
+        $data['itc_reversal'] = [];
+        $data['tax_paid_on_reverse_charges'] = [];
+        $data['tax_paid_under_reverse_charge_on_advance'] = [];
 
-        foreach ($data as $invoice) {
-            $sgstCgstZero = true;
+        $b2b_other_taxable_invoices_quantity = !empty($data['b2b_other_taxable_invoices']['total']['total_quantity']) ? $data['b2b_other_taxable_invoices']['total']['total_quantity'] : 0;
+        $nil_reted_quantity = !empty($data['nil_reted']['total']['total_quantity']) ? $data['nil_reted']['total']['total_quantity'] : 0;
+
+        $b2b_other_taxable_invoices_amount = !empty($data['b2b_other_taxable_invoices']['total']['total_amount']) ? $data['b2b_other_taxable_invoices']['total']['total_amount'] : 0;
+        $nil_reted_amount = !empty($data['nil_reted']['total']['total_amount']) ? $data['nil_reted']['total']['total_amount'] : 0;
+
+        $b2b_other_taxable_invoices_taxable_amount = !empty($data['b2b_other_taxable_invoices']['total']['total_taxable_amount']) ? $data['b2b_other_taxable_invoices']['total']['total_taxable_amount'] : 0;
+        $nil_reted_taxable_amount = !empty($data['nil_reted']['total']['total_taxable_amount']) ? $data['nil_reted']['total']['total_taxable_amount'] : 0;
+
+        $b2b_other_taxable_invoices_cgst = !empty($data['b2b_other_taxable_invoices']['total']['total_cgst']) ? $data['b2b_other_taxable_invoices']['total']['total_cgst'] : 0;
+        $nil_reted_cgst = !empty($data['nil_reted']['total']['total_cgst']) ? $data['nil_reted']['total']['total_cgst'] : 0;
+
+        $b2b_other_taxable_invoices_sgst = !empty($data['b2b_other_taxable_invoices']['total']['total_sgst']) ? $data['b2b_other_taxable_invoices']['total']['total_sgst'] : 0;
+        $nil_reted_sgst = !empty($data['nil_reted']['total']['total_sgst']) ? $data['nil_reted']['total']['total_sgst'] : 0;
+
+        $b2b_other_taxable_invoices_gst = !empty($data['b2b_other_taxable_invoices']['total']['total_gst']) ? $data['b2b_other_taxable_invoices']['total']['total_gst'] : 0;
+        $nil_reted_gst = !empty($data['nil_reted']['total']['total_gst']) ? $data['nil_reted']['total']['total_gst'] : 0;
+            
+        $total_quantity = $b2b_other_taxable_invoices_quantity + $nil_reted_quantity;
+        $total_amount = $b2b_other_taxable_invoices_amount + $nil_reted_amount;
+        $total_taxable_amount = $b2b_other_taxable_invoices_taxable_amount + $nil_reted_taxable_amount;
+        $total_cgst = $b2b_other_taxable_invoices_cgst + $nil_reted_cgst;
+        $total_sgst = $b2b_other_taxable_invoices_sgst + $nil_reted_sgst;
+        $total_gst = $b2b_other_taxable_invoices_gst + $nil_reted_gst;
         
-            foreach ($invoice->products as $product) {
-                if ($product['CGST_amount'] != 0 || $product['SGST_amount'] != 0) {
-                    $sgstCgstZero = false;
-                    break;
-                } else {
-                    $sgstCgstZero = true;
-                    break;
-                }
-            }
-        
-            $formattedInvoice = [
-                "desc" => $invoice->desc,
-                "invoice_date" => $invoice->invoice_date,
-                "invoice_no" => $invoice->invoice_no,
-                "invoice_value" => $invoice->invoice_value,
-                "local_or_central" => $invoice->local_or_central,
-                "invoice_type" => $invoice->invoice_type,
-                "GSTIN" => $invoice->GSTIN,
-                "products" => $invoice->products
-            ];
-        
-            if ($sgstCgstZero) {
-                $nilRated[] = $formattedInvoice;
-            } else {
-                $b2bSmallInvoice[] = $formattedInvoice;
-            }
-        }
-        
-        $result = [
-            "b2b_small_invoice" => $b2bSmallInvoice,
-            "nil_rated" => $nilRated
+        $data['gross_total'] = [
+            'quantity' => $total_quantity,
+            'amount' => $total_amount,
+            'taxable_amount' => $total_taxable_amount,
+            'cgst' => $total_cgst,
+            'sgst' => $total_sgst,
+            'igst' => 0.00,
+            'cess' => 0.00,
+            'total_gst' => $total_gst,
         ];
+
+
+
+        return response()->json(["statusCode" => 1, 'message' => 'sucess', 'data' => $data], 200);
     }
 }
