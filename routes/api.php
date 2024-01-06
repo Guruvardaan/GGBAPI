@@ -18,6 +18,7 @@ use App\Http\Controllers\SmsTemplateMasterController;
 use App\Http\Controllers\EmailTemplateMasterController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\StockTransferController;
+use App\Http\Controllers\InventoryThresholdController;
 
 /*
 |--------------------------------------------------------------------------
@@ -93,3 +94,6 @@ Route::post('delete-email-template',  [EmailTemplateMasterController::class, 'de
 
 Route::post('get-purchase',  [PurchaseController::class, 'getPurchases']);
 Route::post('stock-transfer',  [StockTransferController::class, 'stockTransfer']);
+
+Route::get('get_inventory_threshold_products',  [InventoryThresholdController::class, 'get_inventory_threshold_products']);
+Route::post('auto-stock-transfer',  [InventoryThresholdController::class, 'autoStockTransfer']);
