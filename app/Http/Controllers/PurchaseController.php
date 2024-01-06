@@ -53,10 +53,14 @@ class PurchaseController extends Controller
                     $orderDetail = DB::table('vendor_purchases_detail')
                     ->leftJoin('vendor_purchases', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases')
                     ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                    ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
                     ->select(
                         'product_master.name AS prod_name',
                         'product_master.barcode',
-                        'vendor_purchases_detail.*'
+                        'vendor_purchases_detail.*',
+                        'product_batch.name as batch_name',
+                        'product_batch.mrp as batch_mrp',
+                        'product_batch.idproduct_batch as idproduct_batch'
                     )->where('vendor_purchases_detail.idvendor_purchases', $p->idvendor_purchases)
                     ->where('vendor_purchases.idstore_warehouse', $userAccess->idstore_warehouse) //replace 1 with $userAccess->idstore_warehouse
                     ->get();
