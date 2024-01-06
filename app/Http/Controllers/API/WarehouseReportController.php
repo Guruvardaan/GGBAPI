@@ -12,6 +12,7 @@ class WarehouseReportController extends Controller
     {
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $limit = !empty($request->limit) ? $request->limit : 50; 
 
         $warehouses =  DB::table('store_request')
         ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', '=', 'store_request.idstore_warehouse_to')
@@ -29,7 +30,7 @@ class WarehouseReportController extends Controller
             $warehouses->whereBetween('store_request.created_at',[$start_date, $end_date]);
         }
 
-        $warehouseData = $warehouses->get();
+        $warehouseData = $warehouses->paginate($limit);
 
         foreach($warehouseData as $store) {
             $data = $this->get_requested_warehouse($store->idstore_request);

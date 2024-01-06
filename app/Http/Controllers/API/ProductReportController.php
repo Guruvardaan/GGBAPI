@@ -15,6 +15,7 @@ class ProductReportController extends Controller
         try{
             $start_date =  !empty($request->start_date) ? $request->start_date : null;
             $end_date = !empty($request->end_date)? $request->end_date :  null;
+            $limit = !empty($request->limit) ? $request->limit : 50; 
         
             $productmaster = DB::table('product_master')
                             ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'product_master.idproduct_master')
@@ -70,7 +71,7 @@ class ProductReportController extends Controller
                 $productmaster->whereBetween('product_master.created_at',[$start_date, $end_date]);
             }    
             
-            $products = $productmaster->get();
+            $products = $productmaster->paginate($limit);
 
             foreach($products as $product)
             {   $product->selling_margin_rupees = $product->mrp - $product->selling_price;

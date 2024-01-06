@@ -444,7 +444,7 @@ class Helper
                         ->where('total_sgst', '<>', 0)
                         ->where('total_cgst', '<>', 0)
                         ->get();
-        return $order_detail;                
+        return $order_detail;                 
     }
 
     public static function get_nil_reted_invoice($year, $month, $start_date, $end_date)

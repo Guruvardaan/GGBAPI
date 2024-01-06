@@ -21,7 +21,7 @@ class SystemReportController extends Controller
                                     ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
                                     ->groupBy('idvendor')
                                     ->orderBy('total_sales', 'asc')
-                                    ->first();  
+                                    ->first();                           
         $get_year_over_year_growth = $this->get_year_over_year_growth();
         $data['get_best_seller'] =  $this->get_seller_detail($get_best_seller->idvendor);
         $data['get_best_seller']->total_sales = $get_best_seller->total_sales;
@@ -49,9 +49,9 @@ class SystemReportController extends Controller
 
     public function get_seller_detail($id) 
     {
-       $seller_data =  DB::table('vendors')
-                       ->select('id As idvendor','name', 'phone')
-                       ->where('id', $id)
+       $seller_data =  DB::table('vendor')
+                       ->select('idvendor','name', 'phone')
+                       ->where('idvendor', $id)
                        ->first();
        return $seller_data;                
     }
