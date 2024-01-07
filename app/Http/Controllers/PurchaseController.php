@@ -12,7 +12,7 @@ class PurchaseController extends Controller
     public function getPurchases(Request $request)
     {
         $req=json_decode($request->getContent()); 
-        //$user = auth()->guard('api')->user(); 
+        $user = auth()->guard('api')->user(); 
                 
         $userAccess = DB::table('staff_access')
             ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
@@ -22,7 +22,7 @@ class PurchaseController extends Controller
                 'store_warehouse.is_store',
                 'staff_access.idstaff'
             )
-            ->where('staff_access.idstaff', 2) // replace 2 with $user->id
+            ->where('staff_access.idstaff', $user->id) // replace 2 with $user->id
             ->first();
 
         try {
@@ -33,7 +33,7 @@ class PurchaseController extends Controller
                         'vendor.name AS vendor_name',
                         'vendor.gst AS vendor_gst',
                         'vendor_purchases.*'
-                    )->where('vendor_purchases.idstore_warehouse', 1); //replace 1 with $userAccess->idstore_warehouse
+                    )->where('vendor_purchases.idstore_warehouse', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
 
                 if (isset($req->idvendor) > 0) {
                     $orderMaster->where('vendor_purchases.idvendor', $req->idvendor);
@@ -62,7 +62,7 @@ class PurchaseController extends Controller
                         'product_batch.mrp as batch_mrp',
                         'product_batch.idproduct_batch as idproduct_batch'
                     )->where('vendor_purchases_detail.idvendor_purchases', $p->idvendor_purchases)
-                    ->where('vendor_purchases.idstore_warehouse', 1) //replace 1 with $userAccess->idstore_warehouse
+                    ->where('vendor_purchases.idstore_warehouse', $userAccess->idstore_warehouse) //replace 1 with $userAccess->idstore_warehouse
                     ->get();
                     $purchaseArray[$i]->purchase_details=$orderDetail;
                     $i++;
