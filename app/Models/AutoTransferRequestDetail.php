@@ -9,7 +9,7 @@ class AutoTransferRequestDetail extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'idbillwise_requests',
+        'idauto_transfer_requests',
         'idproduct_master',
         'quantity',
         'quantity_sent',

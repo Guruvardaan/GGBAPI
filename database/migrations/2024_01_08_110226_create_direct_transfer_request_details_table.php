@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('direct_transfer_request_details', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('iddirect_transfer_requests');
-            $table->bigInteger('idstore_warehouse_to');
-            $table->bigInteger('idproduct_master');
-            $table->bigInteger('idproduct_batch');
+            $table->bigInteger('iddirect_transfer_requests')->nullable();
+            $table->bigInteger('idstore_warehouse_to')->nullable();
+            $table->bigInteger('idproduct_master')->nullable();
+            $table->bigInteger('idproduct_batch')->nullable();
             $table->double('quantity', 12, 4);
             $table->double('quantity_sent', 12, 4);
             $table->double('quantity_received', 12, 4);

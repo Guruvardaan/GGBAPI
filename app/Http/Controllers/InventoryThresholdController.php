@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use  App\Helpers\Helper;
 
+use App\Models\AutoTransferRequest;
+use App\Models\AutoTransferRequestDetail;
+
 class InventoryThresholdController extends Controller
 {
     public function index()
@@ -620,39 +623,74 @@ class InventoryThresholdController extends Controller
             ->where('idstore_warehouse', $req->id_warehouse)
             ->first();
                 if($storeWarehouseDetail){
-                    foreach ($req->threshold_products as $pro) {
-                       
-                        $productInvDetail = DB::table('inventory')
-                            ->where('idproduct_master', $pro->idproduct_master)
-                            ->where('idstore_warehouse', $req->id_store)
-                            ->first();
+                    $AutoTransferRequest = array(
+                        'idstore_warehouse_from' => $req->id_warehouse,
+                        'idstore_warehouse_to' => $req->id_store,
+                        'dispatch_date'=>date("Y-m-d"),
+                        'dispatched_by'=> 1, // replace 1 with $user->id
+                        'created_by' => 1, // replace 1 with $user->id
+                        'updated_by' => 1, // replace 1 with $user->id
+                        'status' => 1
+                    );
+                    $createAutoTransfer = AutoTransferRequest::create($AutoTransferRequest);
+                    
+                    if($createAutoTransfer){
+                        foreach ($req->threshold_products as $pro) {
+                        
+                            $productInvDetail = DB::table('inventory')
+                                ->where('idproduct_master', $pro->idproduct_master)
+                                ->where('idstore_warehouse', $req->id_store)
+                                ->first();
 
-                        $ware_productInvDetail = DB::table('inventory')
-                            ->where('idproduct_master', $pro->idproduct_master)
-                            ->where('idstore_warehouse', $req->id_warehouse)
-                            ->first();
-                        if($ware_productInvDetail)
-                        {
-                            if ($productInvDetail) {
-                                $updatedQty=$pro->threshold_quantity;
-                                    if($ware_productInvDetail->quantity < $updatedQty){ // check if warehouse Qty lessthan threshold then only available warehose qty will transfer
-                                        $updatedQty=$ware_productInvDetail->quantity;
-                                    }
+                            $ware_productInvDetail = DB::table('inventory')
+                                ->where('idproduct_master', $pro->idproduct_master)
+                                ->where('idstore_warehouse', $req->id_warehouse)
+                                ->first();
+                            if($ware_productInvDetail)
+                            {
+                                if ($productInvDetail) {
+                                    $updatedQty=$pro->threshold_quantity;
+                                        if($ware_productInvDetail->quantity < $updatedQty){ // check if warehouse Qty lessthan threshold then only available warehose qty will transfer
+                                            $updatedQty=$ware_productInvDetail->quantity;
+                                        }
+                                        DB::table('inventory')
+                                        ->where('idproduct_master', $pro->idproduct_master)
+                                        ->where('idstore_warehouse', $req->id_store)
+                                        ->update([
+                                            'quantity' => DB::raw('quantity + ' . $updatedQty),
+                                        ]);
+
+                                    // add request details
+                                    $billwiseRequestDetail = array(
+                                        'idauto_transfer_requests' => $createAutoTransfer->id,
+                                        'idproduct_master' => $pro->idproduct_master,
+                                        'quantity'=>$ware_productInvDetail->quantity,
+                                        'quantity_sent'=>$updatedQty,
+                                        'quantity_received'=>$updatedQty,
+                                        'created_by' => 1, // replace 1 with $user->id
+                                        'updated_by' => 1, // replace 1 with $user->id
+                                        'status' => 1
+                                    );
+                                    $createAutoTransferDetail = AutoTransferRequestDetail::create($billwiseRequestDetail);
+                                    // update from qty
                                     DB::table('inventory')
-                                    ->where('idproduct_master', $pro->idproduct_master)
-                                    ->where('idstore_warehouse', $req->id_store)
-                                    ->update([
-                                        'quantity' => DB::raw('quantity + ' . $updatedQty),
-                                    ]);
+                                        ->where('idproduct_master', $pro->idproduct_master)
+                                        ->where('idstore_warehouse', $req->id_warehouse)
+                                        ->update([
+                                            'quantity' => DB::raw('quantity - ' . $updatedQty)
+                                        ]);
+                                }else {
+                                    return response()->json(["statusCode" => 1, "message" => '', "err" => 'store product inventory does not exist'], 200);
+                                }
                             }else {
-                                return response()->json(["statusCode" => 1, "message" => '', "err" => 'store product inventory does not exist'], 200);
+                                return response()->json(["statusCode" => 1, "message" => '', "err" => 'warehouse product inventory does not exist'], 200);
                             }
-                        }else {
-                            return response()->json(["statusCode" => 1, "message" => '', "err" => 'warehouse product inventory does not exist'], 200);
                         }
+                        DB::commit();
+                        return response()->json(["statusCode" => 0, "message" => "Success"], 200);
+                    }else{
+                        return response()->json(["statusCode" => 1, "message" => '', "err" => 'issue while creating auto transfer request'], 200);
                     }
-                    DB::commit();
-                    return response()->json(["statusCode" => 0, "message" => "Success"], 200);
                 }else{
                     return response()->json(["statusCode" => 1, "message" => '', "err" => 'Warehouse does not exist'], 200);
                 }

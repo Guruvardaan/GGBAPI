@@ -107,15 +107,13 @@ class StockTransferController extends Controller
         try {
             DB::beginTransaction();
             $req = json_decode($request->getContent());
-            //$user = auth()->guard('api')->user();
+            $user = auth()->guard('api')->user();
             
             $vendorDetail = DB::table('vendor')
             ->where('idvendor', $req->idvendor)
             ->first();
             if($vendorDetail){
                 $billwiseRequest = array(
-                    'idstore_warehouse_to' => $req->idstore_warehouse_to,
-                    'idstore_warehouse_from' => $req->idstore_warehouse_from,
                     'idvendor' => $req->idvendor,
                     'dispatch_date'=>date("Y-m-d"),
                     'dispatched_by'=> $user->id, // replace 1 with $user->id
@@ -129,7 +127,7 @@ class StockTransferController extends Controller
                         $vendorPurchaseDetail=null;
                         $productBatchDetail = DB::table('product_batch')
                             ->where('idproduct_master', $pro->idproduct_master)
-                            ->where('idstore_warehouse', $req->idstore_warehouse_to)
+                            ->where('idstore_warehouse', $pro->idstore_warehouse)
                             ->where('mrp', $pro->mrp)
                             ->where('name', $pro->batch)
                             ->first();
@@ -158,7 +156,7 @@ class StockTransferController extends Controller
                                     $batch_id=$productBatchDetail->idproduct_batch;
                             } else { 
                                 $batch = array(
-                                    'idstore_warehouse' => $req->idstore_warehouse_to,
+                                    'idstore_warehouse' => $pro->idstore_warehouse,
                                     'idproduct_master' => $pro->idproduct_master,
                                     'name' => $pro->batch,
                                     'purchase_price' => floatval($vendorPurchaseDetail->unit_purchase_price),
@@ -180,13 +178,13 @@ class StockTransferController extends Controller
                             
                             $productInvDetail = DB::table('inventory')
                                 ->where('idproduct_master', $pro->idproduct_master)
-                                ->where('idstore_warehouse', $req->idstore_warehouse_to)
+                                ->where('idstore_warehouse', $pro->idstore_warehouse)
                                 ->first();
 
                             if ($productInvDetail && $productInvDetail->idinventory) {
                                 DB::table('inventory')
                                     ->where('idproduct_master', $pro->idproduct_master)
-                                    ->where('idstore_warehouse', $req->idstore_warehouse_to)
+                                    ->where('idstore_warehouse', $pro->idstore_warehouse)
                                     ->update([
                                         'quantity' => DB::raw('quantity + ' . $updatedQty),
                                         'selling_price' => $vendorPurchaseDetail->selling_price!=''?$vendorPurchaseDetail->selling_price:0,
@@ -198,7 +196,7 @@ class StockTransferController extends Controller
                                     ]);
                             } else {
                                 $inv = array(
-                                    'idstore_warehouse' => $req->idstore_warehouse_to,
+                                    'idstore_warehouse' => $pro->idstore_warehouse,
                                     'idproduct_master' => $pro->idproduct_master,
                                     'purchase_price' => $vendorPurchaseDetail->unit_purchase_price!=''?$vendorPurchaseDetail->unit_purchase_price:0,
                                     'selling_price' => $vendorPurchaseDetail->selling_price!=''?$vendorPurchaseDetail->selling_price:0,
@@ -217,6 +215,12 @@ class StockTransferController extends Controller
                                 $inv = Inventory::create($inv);
                             }
 
+                            // update store/warehouse
+                            $updateBillwise = billwiseRequest::where('id',$createBillwise->id)
+                                    ->update([
+                                        'idstore_warehouse_to' => $pro->idstore_warehouse,
+                                        'idstore_warehouse_from' => $vendorDetail->idstore_warehouse,
+                                    ]);
                             // add request details
                             $billwiseRequestDetail = array(
                                 'idbillwise_requests' => $createBillwise->id,
@@ -233,7 +237,7 @@ class StockTransferController extends Controller
                             // update from qty
                             DB::table('inventory')
                                 ->where('idproduct_master', $pro->idproduct_master)
-                                ->where('idstore_warehouse', $req->idstore_warehouse_from)
+                                ->where('idstore_warehouse', $vendorDetail->idstore_warehouse)
                                 ->update([
                                     'quantity' => DB::raw('quantity - ' . $updatedQty)
                                 ]);

@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('billwise_requests', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('idstore_warehouse_to');
-            $table->bigInteger('idstore_warehouse_from');
-            $table->bigInteger('idvendor');
-            $table->date('dispatch_date');
-            $table->bigInteger('dispatched_by');
+            $table->bigInteger('idstore_warehouse_to')->nullable();
+            $table->bigInteger('idstore_warehouse_from')->nullable();
+            $table->bigInteger('idvendor')->nullable();
+            $table->date('dispatch_date')->nullable();
+            $table->bigInteger('dispatched_by')->nullable();
             $table->tinyInteger('status')->default(1);
             $table->mediumInteger('created_by')->nullable();
             $table->mediumInteger('updated_by')->nullable();
