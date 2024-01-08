@@ -754,9 +754,90 @@ class Helper
     {
         $order_detail = DB::table('purchase_order_detail')
                         ->leftJoin('product_master', 'product_master.idproduct_master', 'purchase_order_detail.idproduct_master')
-                        ->select('product_master.name', 'product_master.barcode', 'purchase_order_detail.quantity')
+                        ->select('product_master.idproduct_master', 'product_master.name', 'product_master.barcode', 'purchase_order_detail.quantity')
                         ->where('idpurchase_order', $id)
                         ->get();
         return $order_detail;                
+    }
+
+    public static function get_grn_purchase_data($start_date, $end_date)
+    {
+        $get_purchase_order_data = DB::table('grn_purchase_order')
+                              ->leftJoin('vendor', 'vendor.idvendor', '=', 'grn_purchase_order.idvendor')
+                              ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', '=', 'grn_purchase_order.idstore_warehouse')
+                              ->select('grn_purchase_order.id as idpurchase_order', 'vendor.name as vendor_name', 'store_warehouse.name as warehouse_name', 'grn_purchase_order.total_quantity', 'grn_purchase_order.note1', 'grn_purchase_order.note2', 'grn_purchase_order.image1', 'grn_purchase_order.image2', 'grn_purchase_order.created_at as order_date');
+        
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $get_purchase_order_data->whereBetween('grn_purchase_order.created_at',[$start_date, $end_date]);
+        }
+        $get_purchase_order = $get_purchase_order_data->get();
+        
+        foreach($get_purchase_order as $order) {
+            $date = Carbon::parse($order->order_date);
+            $order->order_date = $date->format('d-M-y');
+            $order_detail = self::get_grn_order_detail($order->idpurchase_order);
+            $order->products = !empty($order_detail->toArray()) ? $order_detail : [];
+        }
+        $data = self::grn_filter_data($get_purchase_order);
+        return $data;
+    }
+
+    public static function get_grn_order_detail($id)
+    {
+        $order_detail = DB::table('grn_purchase_order_detail')
+                        ->leftJoin('product_master', 'product_master.idproduct_master', 'grn_purchase_order_detail.idproduct_master')
+                        ->select('product_master.idproduct_master', 'product_master.name', 'product_master.barcode', 'grn_purchase_order_detail.quantity', 'grn_purchase_order_detail.sent_quantity', 'grn_purchase_order_detail.extra_product', 'grn_purchase_order_detail.free_product', 'grn_purchase_order_detail.expired_product')
+                        ->where('idgrn_purchase_order', $id)
+                        ->get();
+        return $order_detail;                
+    }
+
+    public static function check_sent_quantity($product_id)
+    {
+        $products = DB::table('purchase_order_detail')->select('quantity')->where('idproduct_master', $product_id)->get()->last();
+        return !empty($products->quantity) ? $products->quantity : 0;
+    }
+
+    public static function grn_filter_data($data)
+    {
+        $filtered_data = [];
+
+        foreach($data as $key => $item){
+            $filtered_data[$key]['idpurchase_order'] = $item->idpurchase_order;
+            $filtered_data[$key]['vendor_name'] = $item->vendor_name;
+            $filtered_data[$key]['warehouse_name'] = $item->warehouse_name;
+            $filtered_data[$key]['total_quantity'] = $item->total_quantity;
+            $filtered_data[$key]['note1'] = $item->note1;
+            $filtered_data[$key]['note2'] = $item->note2;
+            $filtered_data[$key]['image1'] = $item->image1;
+            $filtered_data[$key]['image2'] = $item->image2;
+            $filtered_data[$key]['order_date'] = $item->order_date;
+            foreach($item->products as $p_key => $product){
+                if(empty($product->extra_product) && empty($product->free_product) && empty($product->expired_product)) {
+                    $filtered_data[$key]['products'][$p_key]['name'] =  $product->name;
+                    $filtered_data[$key]['products'][$p_key]['barcode'] =  $product->barcode;
+                    $filtered_data[$key]['products'][$p_key]['quantity'] =  $product->quantity;
+                    $filtered_data[$key]['products'][$p_key]['sent_quantity'] =  $product->sent_quantity;
+                }else if(!empty($product->extra_product)) {
+                    $filtered_data[$key]['extra_products'][$p_key]['name'] =  $product->name;
+                    $filtered_data[$key]['extra_products'][$p_key]['barcode'] =  $product->barcode;
+                    $filtered_data[$key]['extra_products'][$p_key]['quantity'] =  $product->quantity;
+                } else if (!empty($product->free_product)) {
+                    $filtered_data[$key]['free_products'][$p_key]['name'] =  $product->name;
+                    $filtered_data[$key]['free_products'][$p_key]['barcode'] =  $product->barcode;
+                    $filtered_data[$key]['free_products'][$p_key]['quantity'] =  $product->quantity;
+                } else if (!empty($product->expired_product)) {
+                    $filtered_data[$key]['expired_products'][$p_key]['name'] =  $product->name;
+                    $filtered_data[$key]['expired_products'][$p_key]['barcode'] =  $product->barcode;
+                    $filtered_data[$key]['expired_products'][$p_key]['quantity'] =  $product->quantity;
+                }
+            }
+            $filtered_data[$key]['products'] = array_values($filtered_data[$key]['products']);
+            $filtered_data[$key]['extra_products'] = array_values($filtered_data[$key]['extra_products']);
+            $filtered_data[$key]['free_products'] = array_values($filtered_data[$key]['free_products']);
+            $filtered_data[$key]['expired_products'] = array_values($filtered_data[$key]['expired_products']);
+        }
+
+        return $filtered_data;
     }
 }

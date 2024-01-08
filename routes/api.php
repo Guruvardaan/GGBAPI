@@ -14,6 +14,7 @@ use App\Http\Controllers\API\PackegeController;
 use App\Http\Controllers\API\GstReportController;
 use App\Http\Controllers\API\ExcelController;
 use App\Http\Controllers\API\PurchaseOrderController;
+use App\Http\Controllers\API\GRNReportController;
 
 
 /*
@@ -88,3 +89,9 @@ Route::post('place-order', [PurchaseOrderController::class, 'place_order']);
 Route::get('purchase-order-list', [PurchaseOrderController::class, 'get_puchase_order']);
 Route::get('generate-pdf/{start_date?}/{end_date?}', [PurchaseOrderController::class, 'generate_pdf']);
 Route::get('view', [PurchaseOrderController::class, 'loadDataview']);
+
+//GRN report
+Route::post('add-order', [GRNReportController::class, 'add_order']);
+Route::post('edit-order/{id}', [GRNReportController::class, 'edit_order']);
+Route::get('grn-report', [GRNReportController::class, 'get_grn_puchase_order']);
+Route::get('confirm-grn-report/{id}', [GRNReportController::class, 'confirm_grn']);
