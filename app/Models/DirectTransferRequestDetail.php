@@ -10,6 +10,7 @@ class DirectTransferRequestDetail extends Model
     use HasFactory;
     protected $fillable = [
         'iddirect_transfer_requests',
+        'idproduct_batch',
         'idstore_warehouse_to',
         'idproduct_master',
         'quantity',

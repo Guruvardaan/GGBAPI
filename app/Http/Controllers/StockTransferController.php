@@ -14,79 +14,84 @@ use App\Models\DirectTransferRequest;
 use App\Models\DirectTransferRequestDetail;
 use App\Models\AutoTransferRequest;
 use App\Models\AutoTransferRequestDetail;
+use Illuminate\Support\Facades\Http;
 
 class StockTransferController extends Controller
 {
     public function stockTransfer(Request $request)
     {
-        try {
+        try { 
             DB::beginTransaction();
-            $req = json_decode($request->getContent());
-            $user = auth()->guard('api')->user();
+            $reqestedData = json_decode($request->getContent(),true);
             
-            $storeWarehouseDetail = DB::table('store_warehouse')
-            ->where('idstore_warehouse', $req->idstore_warehouse_from)
-            ->first();
+            //$user = auth()->guard('api')->user();
+            foreach($reqestedData as $req){ 
+                $storeWarehouseDetail = DB::table('store_warehouse')
+                ->where('idstore_warehouse', $req['idstore_warehouse_from'])
+                ->first();
                 if($storeWarehouseDetail){
                     $DirectTransferRequest = array(
-                        'idstore_warehouse_from' => $req->idstore_warehouse_from,
+                        'idstore_warehouse_from' => $req['idstore_warehouse_from'],
+                        'idstore_warehouse_to' => $req['to_warehouse_id'],
                         'dispatch_date'=>date("Y-m-d"),
-                        'dispatched_by'=> $user->id, // replace 1 with $user->id
-                        'created_by' => $user->id, // replace 1 with $user->id
-                        'updated_by' => $user->id, // replace 1 with $user->id
+                        'dispatched_by'=> 1, // replace 1 with $user->id
+                        'created_by' => 1, // replace 1 with $user->id
+                        'updated_by' => 1, // replace 1 with $user->id
                         'status' => 1
                     );
                     $createDirectTransfer = DirectTransferRequest::create($DirectTransferRequest);
                     
                     if($createDirectTransfer){
-                        foreach ($req->products as $pro) {
+                        foreach ($req['products'] as $pro) {
                         
-                            $productInvDetail = DB::table('inventory')
-                                ->where('idproduct_master', $pro->idproduct_master)
-                                ->where('idstore_warehouse', $pro->idstore_warehouse_to)
-                                ->first();
+                            // $productInvDetail = DB::table('inventory')
+                            //     ->where('idproduct_master', $pro['idproduct_master'])
+                            //     ->where('idstore_warehouse', $req['to_warehouse_id'])
+                            //     ->first();
 
                             $ware_productInvDetail = DB::table('inventory')
-                                ->where('idproduct_master', $pro->idproduct_master)
-                                ->where('idstore_warehouse', $req->idstore_warehouse_from)
+                                ->where('idproduct_master', $pro['idproduct_master'])
+                                ->where('idstore_warehouse', $req['idstore_warehouse_from'])
                                 ->first();
                             if($ware_productInvDetail)
                             {
-                                if ($productInvDetail) {
-                                    $updatedQty=$pro->quantity;
-                                        if($ware_productInvDetail->quantity < $updatedQty){ // check if warehouse Qty lessthan threshold then only available warehose qty will transfer
-                                            $updatedQty=$ware_productInvDetail->quantity;
-                                        }
-                                        DB::table('inventory')
-                                        ->where('idproduct_master', $pro->idproduct_master)
-                                        ->where('idstore_warehouse', $pro->idstore_warehouse_to)
-                                        ->update([
-                                            'quantity' => DB::raw('quantity + ' . $updatedQty),
-                                        ]);
+                                //if ($productInvDetail) {
+                                    $updatedQty=$pro['quantity'];
+                                    if($ware_productInvDetail->quantity < $updatedQty){ // check if warehouse Qty lessthan threshold then only available warehose qty will transfer
+                                        $updatedQty=$ware_productInvDetail->quantity;
+                                    }
+                                    DB::table('inventory')
+                                    ->where('idproduct_master', $pro['idproduct_master'])
+                                    ->where('idstore_warehouse', $req['to_warehouse_id'])
+                                    ->update([
+                                        'quantity' => DB::raw('quantity + ' . $updatedQty),
+                                    ]);
                                     
                                     // add request details
                                     $billwiseRequestDetail = array(
                                         'iddirect_transfer_requests' => $createDirectTransfer->id,
-                                        'idstore_warehouse_to' => $pro->idstore_warehouse_to,
-                                        'idproduct_master' => $pro->idproduct_master,
+                                        'idstore_warehouse_to' => $req['to_warehouse_id'],
+                                        'idproduct_master' => $pro['idproduct_master'],
                                         'quantity'=>$ware_productInvDetail->quantity,
+                                        'idproduct_batch'=>$pro['idproduct_batch'],
                                         'quantity_sent'=>$updatedQty,
                                         'quantity_received'=>$updatedQty,
-                                        'created_by' => $user->id, // replace 1 with $user->id
-                                        'updated_by' => $user->id, // replace 1 with $user->id
+                                        'created_by' => 1, // replace 1 with $user->id
+                                        'updated_by' => 1, // replace 1 with $user->id
                                         'status' => 1
                                     );
                                     $createDirectTransferDetails = DirectTransferRequestDetail::create($billwiseRequestDetail);
                                     // update from qty
                                     DB::table('inventory')
-                                        ->where('idproduct_master', $pro->idproduct_master)
-                                        ->where('idstore_warehouse', $req->idstore_warehouse_from)
+                                        ->where('idproduct_master', $pro['idproduct_master'])
+                                        ->where('idstore_warehouse', $req['idstore_warehouse_from'])
                                         ->update([
                                             'quantity' => DB::raw('quantity - ' . $updatedQty)
                                         ]);
-                                }else {
-                                    return response()->json(["statusCode" => 1, "message" => '', "err" => 'store product inventory does not exist'], 200);
-                                }
+                                    
+                                // }else {
+                                //     return response()->json(["statusCode" => 1, "message" => '', "err" => 'store product inventory does not exist'], 200);
+                                // }
                             }else {
                                 return response()->json(["statusCode" => 1, "message" => '', "err" => 'warehouse product inventory does not exist'], 200);
                             }
@@ -99,6 +104,7 @@ class StockTransferController extends Controller
                 }else{
                     return response()->json(["statusCode" => 1, "message" => '', "err" => 'Warehouse does not exist'], 200);
                 }
+            }
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json(["statusCode" => 1, "message" => '', "err" => $e->getMessage()], 200);
@@ -265,18 +271,18 @@ class StockTransferController extends Controller
 
     public function getDirectTransferRequest(Request $request){
         $req=json_decode($request->getContent()); 
-        $user = auth()->guard('api')->user();
-        $userAccess = DB::table('staff_access')
-            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
-            ->select(
-                'staff_access.idstore_warehouse',
-                'staff_access.idstaff_access',
-                'store_warehouse.is_store',
-                'staff_access.idstaff'
-            )
-            ->where('staff_access.idstaff', $user->id)
-            ->first();
-        $requestData = DirectTransferRequest::where('idstore_warehouse_from', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+        // $user = auth()->guard('api')->user();
+        // $userAccess = DB::table('staff_access')
+        //     ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+        //     ->select(
+        //         'staff_access.idstore_warehouse',
+        //         'staff_access.idstaff_access',
+        //         'store_warehouse.is_store',
+        //         'staff_access.idstaff'
+        //     )
+        //     ->where('staff_access.idstaff', $user->id)
+        //     ->first();
+        $requestData = DirectTransferRequest::where('idstore_warehouse_from', $req->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
 
         if (isset($req->valid_from) && isset($req->valid_till)) {
             $requestData->whereBetween('created_at', [$req->valid_from, $req->valid_till]);
@@ -346,11 +352,15 @@ class StockTransferController extends Controller
             ->where('staff_access.idstaff', $user->id)
             ->first();
        if($id){
-            $orderDetail = DB::table('direct_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'direct_transfer_request_details.idproduct_master')
+            $orderDetail = DB::table('direct_transfer_request_details')
+            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'direct_transfer_request_details.idproduct_master')
+            ->leftJoin('product_batch', 'product_batch.idproduct_batch', '=', 'direct_transfer_request_details.idproduct_batch')
             ->select(
                 'product_master.name AS prod_name',
                 'product_master.barcode',
-                'direct_transfer_request_details.*'
+                'direct_transfer_request_details.*',
+                'product_batch.name as batch_name',
+                'product_batch.mrp as batch_mrp'
             )->where('direct_transfer_request_details.iddirect_transfer_requests', $id)
             ->get();
             
