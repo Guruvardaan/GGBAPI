@@ -617,7 +617,7 @@ class InventoryThresholdController extends Controller
         try {
             DB::beginTransaction();
             $req = json_decode($request->getContent());
-            //$user = auth()->guard('api')->user();
+            $user = auth()->guard('api')->user();
             
             $storeWarehouseDetail = DB::table('store_warehouse')
             ->where('idstore_warehouse', $req->id_warehouse)
@@ -627,9 +627,9 @@ class InventoryThresholdController extends Controller
                         'idstore_warehouse_from' => $req->id_warehouse,
                         'idstore_warehouse_to' => $req->id_store,
                         'dispatch_date'=>date("Y-m-d"),
-                        'dispatched_by'=> 1, // replace 1 with $user->id
-                        'created_by' => 1, // replace 1 with $user->id
-                        'updated_by' => 1, // replace 1 with $user->id
+                        'dispatched_by'=> $user->id, // replace 1 with $user->id
+                        'created_by' => $user->id, // replace 1 with $user->id
+                        'updated_by' => $user->id, // replace 1 with $user->id
                         'status' => 1
                     );
                     $createAutoTransfer = AutoTransferRequest::create($AutoTransferRequest);
@@ -667,8 +667,8 @@ class InventoryThresholdController extends Controller
                                         'quantity'=>$ware_productInvDetail->quantity,
                                         'quantity_sent'=>$updatedQty,
                                         'quantity_received'=>$updatedQty,
-                                        'created_by' => 1, // replace 1 with $user->id
-                                        'updated_by' => 1, // replace 1 with $user->id
+                                        'created_by' => $user->id, // replace 1 with $user->id
+                                        'updated_by' => $user->id, // replace 1 with $user->id
                                         'status' => 1
                                     );
                                     $createAutoTransferDetail = AutoTransferRequestDetail::create($billwiseRequestDetail);
