@@ -101,3 +101,7 @@ Route::post('billwise-transfer',  [StockTransferController::class, 'BillWiseTran
 Route::post('get-direct-transfer-request',  [StockTransferController::class, 'getDirectTransferRequest']);
 Route::post('get-billwise-transfer-request',  [StockTransferController::class, 'getBillwiseTransferRequest']);
 Route::post('get-auto-transfer-request',  [StockTransferController::class, 'getAutoTransferRequest']);
+
+Route::get('get-direct-transfer-request-detail/{id}',  [StockTransferController::class, 'getDirectTransferRequestDetail']);
+Route::get('get-billwise-transfer-request-detail/{id}',  [StockTransferController::class, 'getBillwiseTransferRequestDetail']);
+Route::get('get-auto-transfer-request-detail/{id}',  [StockTransferController::class, 'getAutoTransferRequestDetail']);

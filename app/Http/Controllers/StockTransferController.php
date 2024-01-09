@@ -283,25 +283,8 @@ class StockTransferController extends Controller
         }
         $requestData->orderBy('created_at', 'DESC');
         $TransferData=$requestData->get();
-        $detailArray=[];
-        $i=0;
-        foreach($TransferData as $p){
-            $detailArray[$i]=$p;
-            $orderDetail = DB::table('direct_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'direct_transfer_request_details.idproduct_master')
-            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'direct_transfer_request_details.idproduct_master')
-            ->select(
-                'product_master.name AS prod_name',
-                'product_master.barcode',
-                'direct_transfer_request_details.*',
-                'product_batch.name as batch_name',
-                'product_batch.mrp as batch_mrp',
-                'product_batch.idproduct_batch as idproduct_batch'
-            )->where('direct_transfer_request_details.iddirect_transfer_requests', $p->id)
-            ->get();
-            $detailArray[$i]->transfer_detail=$orderDetail;
-            $i++;
-        }
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $detailArray], 200);
+        
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $TransferData], 200);
     }
     public function getBillwiseTransferRequest(Request $request){
         $req=json_decode($request->getContent()); 
@@ -323,25 +306,8 @@ class StockTransferController extends Controller
         }
         $requestData->orderBy('created_at', 'DESC');
         $TransferData=$requestData->get();
-        $detailArray=[];
-        $i=0;
-        foreach($TransferData as $p){
-            $detailArray[$i]=$p;
-            $orderDetail = DB::table('billwise_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'billwise_request_details.idproduct_master')
-            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'billwise_request_details.idproduct_master')
-            ->select(
-                'product_master.name AS prod_name',
-                'product_master.barcode',
-                'billwise_request_details.*',
-                'product_batch.name as batch_name',
-                'product_batch.mrp as batch_mrp',
-                'product_batch.idproduct_batch as idproduct_batch'
-            )->where('billwise_request_details.idbillwise_requests', $p->id)
-            ->get();
-            $detailArray[$i]->transfer_detail=$orderDetail;
-            $i++;
-        }
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $detailArray], 200);
+        
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $TransferData], 200);
     }
     public function getAutoTransferRequest(Request $request){
         $req=json_decode($request->getContent()); 
@@ -363,24 +329,89 @@ class StockTransferController extends Controller
         }
         $requestData->orderBy('created_at', 'DESC');
         $TransferData=$requestData->get();
-        $detailArray=[];
-        $i=0;
-        foreach($TransferData as $p){
-            $detailArray[$i]=$p;
-            $orderDetail = DB::table('auto_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'auto_transfer_request_details.idproduct_master')
-            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'auto_transfer_request_details.idproduct_master')
+        
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $TransferData], 200);
+    }
+    public function getDirectTransferRequestDetail($id){
+        
+        $user = auth()->guard('api')->user();
+        $userAccess = DB::table('staff_access')
+            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            ->select(
+                'staff_access.idstore_warehouse',
+                'staff_access.idstaff_access',
+                'store_warehouse.is_store',
+                'staff_access.idstaff'
+            )
+            ->where('staff_access.idstaff', $user->id)
+            ->first();
+       if($id){
+            $orderDetail = DB::table('direct_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'direct_transfer_request_details.idproduct_master')
             ->select(
                 'product_master.name AS prod_name',
                 'product_master.barcode',
-                'auto_transfer_request_details.*',
-                'product_batch.name as batch_name',
-                'product_batch.mrp as batch_mrp',
-                'product_batch.idproduct_batch as idproduct_batch'
-            )->where('auto_transfer_request_details.idauto_transfer_requests', $p->id)
+                'direct_transfer_request_details.*'
+            )->where('direct_transfer_request_details.iddirect_transfer_requests', $id)
             ->get();
-            $detailArray[$i]->transfer_detail=$orderDetail;
-            $i++;
+            
+            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $orderDetail], 200);
+        }else {
+            return response()->json(["statusCode" => 1, "message" => '', "err" => 'direct transfer id is required'], 200);
         }
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $detailArray], 200);
+    }
+
+    public function getBillwiseTransferRequestDetail($id){
+        
+        $user = auth()->guard('api')->user();
+        $userAccess = DB::table('staff_access')
+            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            ->select(
+                'staff_access.idstore_warehouse',
+                'staff_access.idstaff_access',
+                'store_warehouse.is_store',
+                'staff_access.idstaff'
+            )
+            ->where('staff_access.idstaff', $user->id)
+            ->first();
+       if($id){
+            $orderDetail = DB::table('billwise_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'billwise_request_details.idproduct_master')
+            ->select(
+                'product_master.name AS prod_name',
+                'product_master.barcode',
+                'billwise_request_details.*'
+            )->where('billwise_request_details.idbillwise_requests', $id)
+            ->get();
+            
+            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $orderDetail], 200);
+        }else {
+            return response()->json(["statusCode" => 1, "message" => '', "err" => 'billwise transfer id is required'], 200);
+        }
+    }
+    public function getAutoTransferRequestDetail($id){
+        
+        $user = auth()->guard('api')->user();
+        $userAccess = DB::table('staff_access')
+            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            ->select(
+                'staff_access.idstore_warehouse',
+                'staff_access.idstaff_access',
+                'store_warehouse.is_store',
+                'staff_access.idstaff'
+            )
+            ->where('staff_access.idstaff', $user->id)
+            ->first();
+        if($id){
+            $orderDetail = DB::table('auto_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'auto_transfer_request_details.idproduct_master')
+            ->select(
+                'product_master.name AS prod_name',
+                'product_master.barcode',
+                'auto_transfer_request_details.*'
+            )->where('auto_transfer_request_details.idauto_transfer_requests', $id)
+            ->get();
+            
+            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $orderDetail], 200);
+        }else {
+            return response()->json(["statusCode" => 1, "message" => '', "err" => 'direct transfer id is required'], 200);
+        }
     }
 }
