@@ -12,34 +12,34 @@ class PurchaseController extends Controller
     public function getPurchases(Request $request)
     {
         $req=json_decode($request->getContent()); 
-        $user = auth()->guard('api')->user(); 
+        //$user = auth()->guard('api')->user(); 
                 
-        $userAccess = DB::table('staff_access')
-            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
-            ->select(
-                'staff_access.idstore_warehouse',
-                'staff_access.idstaff_access',
-                'store_warehouse.is_store',
-                'staff_access.idstaff'
-            )
-            ->where('staff_access.idstaff', $user->id) // replace 2 with $user->id
-            ->first();
+        // $userAccess = DB::table('staff_access')
+        //     ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+        //     ->select(
+        //         'staff_access.idstore_warehouse',
+        //         'staff_access.idstaff_access',
+        //         'store_warehouse.is_store',
+        //         'staff_access.idstaff'
+        //     )
+        //     ->where('staff_access.idstaff', $user->id) // replace 2 with $user->id
+        //     ->first();
 
         try {
-            if($userAccess){
+           // if($userAccess){
                 $orderMaster = DB::table('vendor_purchases')
                     ->leftJoin('vendor', 'vendor_purchases.idvendor', '=', 'vendor.idvendor')
                     ->select(
                         'vendor.name AS vendor_name',
                         'vendor.gst AS vendor_gst',
                         'vendor_purchases.*'
-                    )->where('vendor_purchases.idstore_warehouse', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+                    )->where('vendor_purchases.idstore_warehouse', 1); //replace 1 with $userAccess->idstore_warehouse
 
-                if (isset($req->idvendor) > 0) {
+                if (isset($req->idvendor) > 0 && $req->idvendor!=0) {
                     $orderMaster->where('vendor_purchases.idvendor', $req->idvendor);
                 }
 
-                if (isset($req->bill_number)) {
+                if (isset($req->bill_number) && $req->bill_number!='') {
                     $orderMaster->where('vendor_purchases.bill_number', $req->bill_number);
                 } else {
                     $orderMaster->whereBetween('vendor_purchases.created_at', [$req->valid_from, $req->valid_till]);
@@ -62,15 +62,15 @@ class PurchaseController extends Controller
                         'product_batch.mrp as batch_mrp',
                         'product_batch.idproduct_batch as idproduct_batch'
                     )->where('vendor_purchases_detail.idvendor_purchases', $p->idvendor_purchases)
-                    ->where('vendor_purchases.idstore_warehouse', $userAccess->idstore_warehouse) //replace 1 with $userAccess->idstore_warehouse
+                    ->where('vendor_purchases.idstore_warehouse', 1) //replace 1 with $userAccess->idstore_warehouse
                     ->get();
                     $purchaseArray[$i]->purchase_details=$orderDetail;
                     $i++;
                 }
                 return response()->json(["statusCode" => 0, "message" => "Success", "data" => $purchaseArray], 200);
-            }else{
-                return response()->json(["statusCode" => 1, "message" => "", "err" => 'user Access required'], 200);
-            }
+            // }else{
+            //     return response()->json(["statusCode" => 1, "message" => "", "err" => 'user Access required'], 200);
+            // }
         } catch (Exception $e) {
             return response()->json(["statusCode" => 1, "message" => '', "err" => $e->getMessage()], 200);
         }
