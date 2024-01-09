@@ -98,3 +98,6 @@ Route::post('stock-transfer',  [StockTransferController::class, 'stockTransfer']
 Route::get('get_inventory_threshold_products',  [InventoryThresholdController::class, 'get_inventory_threshold_products']);
 Route::post('auto-stock-transfer',  [InventoryThresholdController::class, 'autoStockTransfer']);
 Route::post('billwise-transfer',  [StockTransferController::class, 'BillWiseTransfer']);
+Route::post('get-direct-transfer-request',  [StockTransferController::class, 'getDirectTransferRequest']);
+Route::post('get-billwise-transfer-request',  [StockTransferController::class, 'getBillwiseTransferRequest']);
+Route::post('get-auto-transfer-request',  [StockTransferController::class, 'getAutoTransferRequest']);

@@ -12,6 +12,8 @@ use App\Models\billwiseRequest;
 use App\Models\billwiseRequestDetail;
 use App\Models\DirectTransferRequest;
 use App\Models\DirectTransferRequestDetail;
+use App\Models\AutoTransferRequest;
+use App\Models\AutoTransferRequestDetail;
 
 class StockTransferController extends Controller
 {
@@ -259,5 +261,126 @@ class StockTransferController extends Controller
             DB::rollBack();
             return response()->json(["statusCode" => 1, "message" => '', "err" => $e->getMessage()], 200);
         }
+    }
+
+    public function getDirectTransferRequest(Request $request){
+        $req=json_decode($request->getContent()); 
+        $user = auth()->guard('api')->user();
+        $userAccess = DB::table('staff_access')
+            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            ->select(
+                'staff_access.idstore_warehouse',
+                'staff_access.idstaff_access',
+                'store_warehouse.is_store',
+                'staff_access.idstaff'
+            )
+            ->where('staff_access.idstaff', $user->id)
+            ->first();
+        $requestData = DirectTransferRequest::where('idstore_warehouse_from', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+
+        if (isset($req->valid_from) && isset($req->valid_till)) {
+            $requestData->whereBetween('created_at', [$req->valid_from, $req->valid_till]);
+        }
+        $requestData->orderBy('created_at', 'DESC');
+        $TransferData=$requestData->get();
+        $detailArray=[];
+        $i=0;
+        foreach($TransferData as $p){
+            $detailArray[$i]=$p;
+            $orderDetail = DB::table('direct_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'direct_transfer_request_details.idproduct_master')
+            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'direct_transfer_request_details.idproduct_master')
+            ->select(
+                'product_master.name AS prod_name',
+                'product_master.barcode',
+                'direct_transfer_request_details.*',
+                'product_batch.name as batch_name',
+                'product_batch.mrp as batch_mrp',
+                'product_batch.idproduct_batch as idproduct_batch'
+            )->where('direct_transfer_request_details.iddirect_transfer_requests', $p->id)
+            ->get();
+            $detailArray[$i]->transfer_detail=$orderDetail;
+            $i++;
+        }
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $detailArray], 200);
+    }
+    public function getBillwiseTransferRequest(Request $request){
+        $req=json_decode($request->getContent()); 
+        $user = auth()->guard('api')->user();
+        $userAccess = DB::table('staff_access')
+            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            ->select(
+                'staff_access.idstore_warehouse',
+                'staff_access.idstaff_access',
+                'store_warehouse.is_store',
+                'staff_access.idstaff'
+            )
+            ->where('staff_access.idstaff', $user->id)
+            ->first();
+        $requestData = billwiseRequest::where('idstore_warehouse_from', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+
+        if (isset($req->valid_from) && isset($req->valid_till)) {
+            $requestData->whereBetween('created_at', [$req->valid_from, $req->valid_till]);
+        }
+        $requestData->orderBy('created_at', 'DESC');
+        $TransferData=$requestData->get();
+        $detailArray=[];
+        $i=0;
+        foreach($TransferData as $p){
+            $detailArray[$i]=$p;
+            $orderDetail = DB::table('billwise_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'billwise_request_details.idproduct_master')
+            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'billwise_request_details.idproduct_master')
+            ->select(
+                'product_master.name AS prod_name',
+                'product_master.barcode',
+                'billwise_request_details.*',
+                'product_batch.name as batch_name',
+                'product_batch.mrp as batch_mrp',
+                'product_batch.idproduct_batch as idproduct_batch'
+            )->where('billwise_request_details.idbillwise_requests', $p->id)
+            ->get();
+            $detailArray[$i]->transfer_detail=$orderDetail;
+            $i++;
+        }
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $detailArray], 200);
+    }
+    public function getAutoTransferRequest(Request $request){
+        $req=json_decode($request->getContent()); 
+        $user = auth()->guard('api')->user();
+        $userAccess = DB::table('staff_access')
+            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            ->select(
+                'staff_access.idstore_warehouse',
+                'staff_access.idstaff_access',
+                'store_warehouse.is_store',
+                'staff_access.idstaff'
+            )
+            ->where('staff_access.idstaff', $user->id)
+            ->first();
+        $requestData = AutoTransferRequest::where('idstore_warehouse_from', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+
+        if (isset($req->valid_from) && isset($req->valid_till)) {
+            $requestData->whereBetween('created_at', [$req->valid_from, $req->valid_till]);
+        }
+        $requestData->orderBy('created_at', 'DESC');
+        $TransferData=$requestData->get();
+        $detailArray=[];
+        $i=0;
+        foreach($TransferData as $p){
+            $detailArray[$i]=$p;
+            $orderDetail = DB::table('auto_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'auto_transfer_request_details.idproduct_master')
+            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'auto_transfer_request_details.idproduct_master')
+            ->select(
+                'product_master.name AS prod_name',
+                'product_master.barcode',
+                'auto_transfer_request_details.*',
+                'product_batch.name as batch_name',
+                'product_batch.mrp as batch_mrp',
+                'product_batch.idproduct_batch as idproduct_batch'
+            )->where('auto_transfer_request_details.idauto_transfer_requests', $p->id)
+            ->get();
+            $detailArray[$i]->transfer_detail=$orderDetail;
+            $i++;
+        }
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $detailArray], 200);
     }
 }
