@@ -616,16 +616,18 @@ class InventoryThresholdController extends Controller
     public function autoStockTransfer(Request $request){
         try {
             DB::beginTransaction();
-            $req = json_decode($request->getContent());
+            $reqestedData = json_decode($request->getContent(),true);
             $user = auth()->guard('api')->user();
+            //$user=json_decode('{"id":1}');
             
-            $storeWarehouseDetail = DB::table('store_warehouse')
-            ->where('idstore_warehouse', $req->id_warehouse)
-            ->first();
+            foreach($reqestedData as $req){ 
+                $storeWarehouseDetail = DB::table('store_warehouse')
+                ->where('idstore_warehouse', $req['id_warehouse'])
+                ->first();
                 if($storeWarehouseDetail){
                     $AutoTransferRequest = array(
-                        'idstore_warehouse_from' => $req->id_warehouse,
-                        'idstore_warehouse_to' => $req->id_store,
+                        'idstore_warehouse_from' => $req['id_warehouse'],
+                        'idstore_warehouse_to' => $req['id_store'],
                         'dispatch_date'=>date("Y-m-d"),
                         'dispatched_by'=> $user->id, // replace 1 with $user->id
                         'created_by' => $user->id, // replace 1 with $user->id
@@ -635,27 +637,27 @@ class InventoryThresholdController extends Controller
                     $createAutoTransfer = AutoTransferRequest::create($AutoTransferRequest);
                     
                     if($createAutoTransfer){
-                        foreach ($req->threshold_products as $pro) {
+                        foreach ($req['threshold_products'] as $pro) {
                         
                             $productInvDetail = DB::table('inventory')
-                                ->where('idproduct_master', $pro->idproduct_master)
-                                ->where('idstore_warehouse', $req->id_store)
+                                ->where('idproduct_master', $pro['idproduct_master'])
+                                ->where('idstore_warehouse', $req['id_store'])
                                 ->first();
 
                             $ware_productInvDetail = DB::table('inventory')
-                                ->where('idproduct_master', $pro->idproduct_master)
-                                ->where('idstore_warehouse', $req->id_warehouse)
+                                ->where('idproduct_master', $pro['idproduct_master'])
+                                ->where('idstore_warehouse', $req['id_warehouse'])
                                 ->first();
                             if($ware_productInvDetail)
                             {
                                 if ($productInvDetail) {
-                                    $updatedQty=$pro->threshold_quantity;
+                                    $updatedQty=$pro['threshold_quantity'];
                                         if($ware_productInvDetail->quantity < $updatedQty){ // check if warehouse Qty lessthan threshold then only available warehose qty will transfer
                                             $updatedQty=$ware_productInvDetail->quantity;
                                         }
                                         DB::table('inventory')
-                                        ->where('idproduct_master', $pro->idproduct_master)
-                                        ->where('idstore_warehouse', $req->id_store)
+                                        ->where('idproduct_master', $pro['idproduct_master'])
+                                        ->where('idstore_warehouse', $req['id_store'])
                                         ->update([
                                             'quantity' => DB::raw('quantity + ' . $updatedQty),
                                         ]);
@@ -663,7 +665,7 @@ class InventoryThresholdController extends Controller
                                     // add request details
                                     $billwiseRequestDetail = array(
                                         'idauto_transfer_requests' => $createAutoTransfer->id,
-                                        'idproduct_master' => $pro->idproduct_master,
+                                        'idproduct_master' => $pro['idproduct_master'],
                                         'quantity'=>$ware_productInvDetail->quantity,
                                         'quantity_sent'=>$updatedQty,
                                         'quantity_received'=>$updatedQty,
@@ -674,8 +676,8 @@ class InventoryThresholdController extends Controller
                                     $createAutoTransferDetail = AutoTransferRequestDetail::create($billwiseRequestDetail);
                                     // update from qty
                                     DB::table('inventory')
-                                        ->where('idproduct_master', $pro->idproduct_master)
-                                        ->where('idstore_warehouse', $req->id_warehouse)
+                                        ->where('idproduct_master', $pro['idproduct_master'])
+                                        ->where('idstore_warehouse', $req['id_warehouse'])
                                         ->update([
                                             'quantity' => DB::raw('quantity - ' . $updatedQty)
                                         ]);
@@ -694,6 +696,7 @@ class InventoryThresholdController extends Controller
                 }else{
                     return response()->json(["statusCode" => 1, "message" => '', "err" => 'Warehouse does not exist'], 200);
                 }
+            }
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json(["statusCode" => 1, "message" => '', "err" => $e->getMessage()], 200);

@@ -271,18 +271,23 @@ class StockTransferController extends Controller
 
     public function getDirectTransferRequest(Request $request){
         $req=json_decode($request->getContent()); 
-        // $user = auth()->guard('api')->user();
-        // $userAccess = DB::table('staff_access')
-        //     ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
-        //     ->select(
-        //         'staff_access.idstore_warehouse',
-        //         'staff_access.idstaff_access',
-        //         'store_warehouse.is_store',
-        //         'staff_access.idstaff'
-        //     )
-        //     ->where('staff_access.idstaff', $user->id)
-        //     ->first();
-        $requestData = DirectTransferRequest::where('idstore_warehouse_from', $req->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+        $user = auth()->guard('api')->user();
+        $userAccess = DB::table('staff_access')
+            ->join('store_warehouse', 'staff_access.idstore_warehouse', '=', 'store_warehouse.idstore_warehouse')
+            ->select(
+                'staff_access.idstore_warehouse',
+                'staff_access.idstaff_access',
+                'store_warehouse.is_store',
+                'staff_access.idstaff'
+            )
+            ->where('staff_access.idstaff', $user->id)
+            ->first();
+            if(isset($req->idstore_warehouse) && $req->idstore_warehouse!=''){
+                $idstore_warehouse=$req->idstore_warehouse;
+            }else{
+                $idstore_warehouse=$userAccess->idstore_warehouse;
+            }
+        $requestData = DirectTransferRequest::where('idstore_warehouse_from', $idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
 
         if (isset($req->valid_from) && isset($req->valid_till)) {
             $requestData->whereBetween('created_at', [$req->valid_from, $req->valid_till]);
@@ -305,7 +310,12 @@ class StockTransferController extends Controller
             )
             ->where('staff_access.idstaff', $user->id)
             ->first();
-        $requestData = billwiseRequest::where('idstore_warehouse_from', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+        if(isset($req->idstore_warehouse) && $req->idstore_warehouse!=''){
+            $idstore_warehouse=$req->idstore_warehouse;
+        }else{
+            $idstore_warehouse=$userAccess->idstore_warehouse;
+        }
+        $requestData = billwiseRequest::where('idstore_warehouse_from', $idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
 
         if (isset($req->valid_from) && isset($req->valid_till)) {
             $requestData->whereBetween('created_at', [$req->valid_from, $req->valid_till]);
@@ -328,7 +338,12 @@ class StockTransferController extends Controller
             )
             ->where('staff_access.idstaff', $user->id)
             ->first();
-        $requestData = AutoTransferRequest::where('idstore_warehouse_from', $userAccess->idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
+            if(isset($req->idstore_warehouse) && $req->idstore_warehouse!=''){
+                $idstore_warehouse=$req->idstore_warehouse;
+            }else{
+                $idstore_warehouse=$userAccess->idstore_warehouse;
+            }
+        $requestData = AutoTransferRequest::where('idstore_warehouse_from', $idstore_warehouse); //replace 1 with $userAccess->idstore_warehouse
 
         if (isset($req->valid_from) && isset($req->valid_till)) {
             $requestData->whereBetween('created_at', [$req->valid_from, $req->valid_till]);
