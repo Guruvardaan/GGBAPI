@@ -10,6 +10,8 @@ use  App\Helpers\Helper;
 
 use App\Models\AutoTransferRequest;
 use App\Models\AutoTransferRequestDetail;
+use App\Models\ProductBatch;
+use App\Models\Inventory;
 
 class InventoryThresholdController extends Controller
 {
@@ -167,11 +169,17 @@ class InventoryThresholdController extends Controller
                     'products' => [],
                 ];
             }
-
+            $batchDetail = DB::table('product_batch')
+                ->where('idproduct_master', $item->idproduct_master)
+                ->where('status', 1)
+                ->orderBy('created_at','asc')->get();
             $transformedData[$key]['products'][] = [
                 'idproduct_master' => $item->idproduct_master,
                 'product_name' => $item->name,
                 'barcode' => $item->barcode,
+                'idproduct_batch'=>$batchDetail?$batchDetail[0]->idproduct_batch:'',
+                'batch_name'=>$batchDetail?$batchDetail[0]->name:'',
+                'batch_details'=>$batchDetail,
                 'brand' => $item->brand_name,
                 'expiry' => $item->expiry,
                 'threshold_quantity' => $item->threshold_quantity,
@@ -638,7 +646,14 @@ class InventoryThresholdController extends Controller
                     
                     if($createAutoTransfer){
                         foreach ($req['threshold_products'] as $pro) {
-                        
+                            
+                            $productBatchDetail = DB::table('product_batch')
+                            ->where('idproduct_master', $pro['idproduct_master'])
+                            ->where('idstore_warehouse', $req['id_store'])
+                            ->where('mrp', $pro['mrp'])
+                            ->where('name', $pro['batch'])
+                            ->first();
+
                             $productInvDetail = DB::table('inventory')
                                 ->where('idproduct_master', $pro['idproduct_master'])
                                 ->where('idstore_warehouse', $req['id_store'])
@@ -650,22 +665,79 @@ class InventoryThresholdController extends Controller
                                 ->first();
                             if($ware_productInvDetail)
                             {
-                                if ($productInvDetail) {
                                     $updatedQty=$pro['threshold_quantity'];
-                                        if($ware_productInvDetail->quantity < $updatedQty){ // check if warehouse Qty lessthan threshold then only available warehose qty will transfer
-                                            $updatedQty=$ware_productInvDetail->quantity;
-                                        }
-                                        DB::table('inventory')
-                                        ->where('idproduct_master', $pro['idproduct_master'])
-                                        ->where('idstore_warehouse', $req['id_store'])
-                                        ->update([
-                                            'quantity' => DB::raw('quantity + ' . $updatedQty),
-                                        ]);
+                                    if($ware_productInvDetail->quantity < $updatedQty){ // check if warehouse Qty lessthan threshold then only available warehose qty will transfer
+                                        $updatedQty=$ware_productInvDetail->quantity;
+                                    }
+
+                                    if (isset($productBatchDetail->idproduct_batch)) {
+                                        DB::table('product_batch')
+                                            ->where('idproduct_batch', $productBatchDetail->idproduct_batch)
+                                            ->update([
+                                                'quantity' => DB::raw('quantity + ' . $updatedQty),
+                                                'selling_price' => $ware_productInvDetail->selling_price!=''?$ware_productInvDetail->selling_price:0,
+                                                'purchase_price' => $ware_productInvDetail->purchase_price!=''?$ware_productInvDetail->purchase_price:0,
+                                                'mrp' => $pro['mrp'],
+                                                'product'=>$ware_productInvDetail->product,
+                                                'copartner'=>$ware_productInvDetail->copartner,
+                                                'land'=>$ware_productInvDetail->land,
+                                            ]);
+                                            $batch_id=$productBatchDetail->idproduct_batch;
+                                    } else { 
+                                        $batch = array(
+                                            'idstore_warehouse' => $req['id_store'],
+                                            'idproduct_master' => $pro['idproduct_master'],
+                                            'name' => $pro['batch'],
+                                            'purchase_price' => floatval($ware_productInvDetail->purchase_price),
+                                            'selling_price' => floatval($ware_productInvDetail->selling_price),
+                                            'mrp' => floatval($pro['mrp']),
+                                            'product'=>$ware_productInvDetail->product,
+                                            'copartner'=>$ware_productInvDetail->copartner,
+                                            'land'=>$ware_productInvDetail->land,
+                                            'discount' => 0,
+                                            'quantity' =>  $ware_productInvDetail->quantity,
+                                            'expiry' => '',
+                                            'created_by' => $user->id, // replace 1 with $user->id
+                                            'updated_by' => $user->id, // replace 1 with $user->id
+                                            'status' => 1
+                                        );
+                                        $pb = ProductBatch::create($batch);
+                                        $batch_id=$pb->idproduct_batch;
+                                    }
+                                    
+                                if ($productInvDetail) {   
+                                    DB::table('inventory')
+                                    ->where('idproduct_master', $pro['idproduct_master'])
+                                    ->where('idstore_warehouse', $req['id_store'])
+                                    ->update([
+                                        'quantity' => DB::raw('quantity + ' . $updatedQty),
+                                    ]);
+                                }else {
+                                    $inv = array(
+                                        'idstore_warehouse' => $req['id_store'],
+                                        'idproduct_master' => $pro['idproduct_master'],
+                                        'purchase_price' => $ware_productInvDetail->purchase_price!=''?$ware_productInvDetail->unit_purchase_price:0,
+                                        'selling_price' => $ware_productInvDetail->selling_price!=''?$ware_productInvDetail->selling_price:0,
+                                        'mrp' => floatval($pro['mrp']),
+                                        'product'=>$ware_productInvDetail->product,
+                                        'copartner'=>$ware_productInvDetail->copartner,
+                                        'land'=>$ware_productInvDetail->land,
+                                        'discount' => 0,
+                                        'quantity' => $updatedQty,
+                                        'only_online' => 0,
+                                        'only_offline' => 0,
+                                        'created_by' => $user->id, // replace 1 with $user->id
+                                        'updated_by' => $user->id, // replace 1 with $user->id
+                                        'status' => 1
+                                    );
+                                    $inv = Inventory::create($inv);
+                                }
 
                                     // add request details
-                                    $billwiseRequestDetail = array(
+                                    $autotransferRequestDetail = array(
                                         'idauto_transfer_requests' => $createAutoTransfer->id,
                                         'idproduct_master' => $pro['idproduct_master'],
+                                        'idproduct_batch' => $pro['idproduct_batch'],
                                         'quantity'=>$ware_productInvDetail->quantity,
                                         'quantity_sent'=>$updatedQty,
                                         'quantity_received'=>$updatedQty,
@@ -673,7 +745,7 @@ class InventoryThresholdController extends Controller
                                         'updated_by' => $user->id, // replace 1 with $user->id
                                         'status' => 1
                                     );
-                                    $createAutoTransferDetail = AutoTransferRequestDetail::create($billwiseRequestDetail);
+                                    $createAutoTransferDetail = AutoTransferRequestDetail::create($autotransferRequestDetail);
                                     // update from qty
                                     DB::table('inventory')
                                         ->where('idproduct_master', $pro['idproduct_master'])
@@ -681,9 +753,15 @@ class InventoryThresholdController extends Controller
                                         ->update([
                                             'quantity' => DB::raw('quantity - ' . $updatedQty)
                                         ]);
-                                }else {
-                                    return response()->json(["statusCode" => 1, "message" => '', "err" => 'store product inventory does not exist'], 200);
-                                }
+                                    // update from qty
+                                    DB::table('product_batch')
+                                        ->where('idproduct_master', $pro['idproduct_master'])
+                                        ->where('idstore_warehouse', $req['id_warehouse'])
+                                        ->where('idproduct_batch',$pro['idproduct_batch'])
+                                        ->update([
+                                            'quantity' => DB::raw('quantity - ' . $updatedQty)
+                                        ]);
+                                
                             }else {
                                 return response()->json(["statusCode" => 1, "message" => '', "err" => 'warehouse product inventory does not exist'], 200);
                             }

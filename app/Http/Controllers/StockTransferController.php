@@ -426,11 +426,15 @@ class StockTransferController extends Controller
             ->where('staff_access.idstaff', $user->id)
             ->first();
         if($id){
-            $orderDetail = DB::table('auto_transfer_request_details')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'auto_transfer_request_details.idproduct_master')
+            $orderDetail = DB::table('auto_transfer_request_details')
+            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'auto_transfer_request_details.idproduct_master')
+            ->leftJoin('product_batch', 'product_batch.idproduct_batch', '=', 'auto_transfer_request_details.idproduct_batch')
             ->select(
                 'product_master.name AS prod_name',
                 'product_master.barcode',
-                'auto_transfer_request_details.*'
+                'auto_transfer_request_details.*',
+                'product_batch.name as batch_name',
+                'product_batch.mrp as batch_mrp'
             )->where('auto_transfer_request_details.idauto_transfer_requests', $id)
             ->get();
             

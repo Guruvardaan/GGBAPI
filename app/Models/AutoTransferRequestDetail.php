@@ -11,6 +11,7 @@ class AutoTransferRequestDetail extends Model
     protected $fillable = [
         'idauto_transfer_requests',
         'idproduct_master',
+        "idproduct_batch",
         'quantity',
         'quantity_sent',
         'quantity_received',

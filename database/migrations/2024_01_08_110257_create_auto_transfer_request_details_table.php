@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('idauto_transfer_requests')->nullable();
             $table->bigInteger('idproduct_master')->nullable();
+            $table->bigInteger('idproduct_batch')->nullable();
             $table->double('quantity', 12, 4)->nullable();
             $table->double('quantity_sent', 12, 4)->nullable();
             $table->double('quantity_received', 12, 4)->nullable();
