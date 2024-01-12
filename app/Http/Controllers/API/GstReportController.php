@@ -88,14 +88,18 @@ class GstReportController extends Controller
         $data['gross_total'] = [
             'quantity' => $total_quantity,
             'amount' => $total_amount,
-            'taxable_amount' => $total_taxable_amount,
+            'taxable_amount' => abs($total_taxable_amount),
             'cgst' => $total_cgst,
             'sgst' => $total_sgst,
             'igst' => 0.00,
             'cess' => 0.00,
             'total_gst' => $total_gst,
         ];
-        return response()->json(["statusCode" => 1, 'message' => 'sucess', 'data' => $data], 200);                   
+        
+        $url =url('api/download-excel-gstr1-detail/' . $start_date .'/'. $end_date);
+        $link = $url;
+
+        return response()->json(["statusCode" => 1, 'message' => 'sucess', 'link' => $link,  'data' => $data], 200);                   
     }
     
     public function purchase_order_artical_wise()
@@ -143,16 +147,15 @@ class GstReportController extends Controller
         $data['gross_total'] = [
             'quantity' => $total_quantity,
             'amount' => $total_amount,
-            'taxable_amount' => $total_taxable_amount,
+            'taxable_amount' => abs($total_taxable_amount),
             'cgst' => $total_cgst,
             'sgst' => $total_sgst,
             'igst' => 0.00,
             'cess' => 0.00,
             'total_gst' => $total_gst,
         ];
-
-
-
-        return response()->json(["statusCode" => 1, 'message' => 'sucess', 'data' => $data], 200);
+        $url =url('api/download-excel-gstr2-detail/' . $start_date .'/'. $end_date);
+        $link = $url;
+        return response()->json(["statusCode" => 1, 'message' => 'sucess', 'link' => $link, 'data' => $data], 200);
     }
 }

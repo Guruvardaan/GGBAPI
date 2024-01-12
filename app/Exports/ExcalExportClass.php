@@ -18,7 +18,7 @@ class ExcalExportClass implements FromArray, WithHeadings, WithStyles, WithColum
     Private $last_six_month = null;
     Private $report = null;
 
-    public function __construct($year, $month, $last_six_month, $report)
+    public function __construct($year, $month, $last_six_month = 0, $report = null)
     {
         $this->year = $year;
         $this->month = $month;

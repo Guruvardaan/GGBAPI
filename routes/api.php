@@ -82,6 +82,8 @@ Route::get('gstr1-detail', [GstReportController::class, 'customer_order_artical_
 Route::get('gstr2-detail', [GstReportController::class, 'purchase_order_artical_wise']);
 Route::get('download-excel-gstr1/{year}/{month}/{last_six_month?}', [ExcelController::class, 'download_excel_gstr1']);
 Route::get('download-excel-gstr2/{year}/{month}/{last_six_month?}', [ExcelController::class, 'download_excel_gstr2']);
+Route::get('download-excel-gstr1-detail/{start_data}/{end_date}', [ExcelController::class, 'download_excel_gstr1_detail']);
+Route::get('download-excel-gstr2-detail/{start_data}/{end_date}', [ExcelController::class, 'download_excel_gstr2_detail']);
 
 
 //Purchase Order
