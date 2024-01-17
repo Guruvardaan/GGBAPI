@@ -59,6 +59,7 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
             $data['nil_reted'] = Helper::get_nil_reted_invoice(null, null, $this->start_date, $this->end_date);
 
             $data = $this->formating_data($data);
+            $data = $this->add_index($data);
             // dd($data);
             $formattedData = array_map(function ($row) {
                 return array_map(function ($value) {
@@ -103,19 +104,30 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
 
     public function columnWidths(): array
     {
-        return array();
-        // return [
-        //     'A' => 35,
-        //     'B' => 10,
-        //     'C' => 10,
-        //     'D' => 10,
-        //     'E' => 10,
-        //     'F' => 10,
-        //     'G' => 10,
-        //     'H' => 10,
-        //     'I' => 10,
-        // ];
-    }
+        // return array();
+        return [
+            'A' => 10,
+            'B' => 25,
+            'C' => 10,
+            'D' => 15,
+            'E' => 15,
+            'F' => 15,
+            'G' => 15,
+            'H' => 15,
+            'I' => 15,
+            'J' => 10,
+            'K' => 10,
+            'L' => 10,
+            'M' => 10,
+            'N' => 10,
+            'O' => 10,
+            'P' => 10,
+            'Q' => 10,
+            'R' => 10,
+            'S' => 10,
+            'T' => 10,
+        ];
+    } 
 
     public function formating_data($data)
     {
@@ -138,10 +150,9 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
             $cat_wise_total[$key] = $item['total'];
             foreach($item as $p_key => $products) {
                 if(!empty($products->products)) {
-                    $result = [];
                     foreach($products->products as $index => $product) {
                         if($index === 0) {
-                            $result[$index]['sr_no'] = $sr;
+                            $result[$index]['sr_no'] = 0;
                             $result[$index]['desc'] = !empty($products->desc) ? $products->desc : ' ';
                             $result[$index]['GSTIN'] = !empty($products->GSTIN) ? $products->GSTIN : ' ';
                             $result[$index]['invoice_date'] = !empty($products->invoice_date) ? $products->invoice_date : ' ';
@@ -164,7 +175,7 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
                             $result[$index]['total_gst'] = !empty($product['total_gst']) ? $product['total_gst'] : 0;
                             // $result[$index]['category'] = $key;
                         } else {
-                            $result[$index]['sr_no'] = $sr;
+                            $result[$index]['sr_no'] = 0;
                             $result[$index]['desc'] =  ' ';
                             $result[$index]['GSTIN'] = ' ';
                             $result[$index]['invoice_date'] = ' ';
@@ -309,50 +320,16 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
         $outputArray[sizeof($outputArray)] = $total[0];
         return $outputArray;
     }
-    
-    // public function final_array_data($data, $cat_wise_total)
-    // {
-    //     $get_data = [];
-    //     $fileds = ['b2b', 'b2c_large_Invoice', 'b2c_small_invoice', 'nil_reted' , 'export_invoices', 'tax_liability_on_advance', 'set_off_tax_on_advance_of_prior_period'];
-    //     $title_fileds = ['b2b' => 'B2B', 'b2c_large_Invoice' => ' B2C (Large) Invoice', 'b2c_small_invoice' => ' B2C (Small) Invoice', 'nil_reted' => 'Nil Reted', 'export_invoices' => 'Export Invoices' , 'tax_liability_on_advance' => 'Tax Liability on Advance', 'set_off_tax_on_advance_of_prior_period' => ' Set/off Tax on Advance of prior period'];
-    //     foreach($data as $item) {
-    //         foreach($fileds as $filed) {
-    //             if($filed === $item['category']) {
-    //                 $get_data[$filed][] = $item;
-    //             } 
-    //         }
-    //     }
 
-    //     $result = [];
-    //     $index = 0;
-    //     $d_key = '';
-    //     foreach($get_data as $key => $item) {
-    //         $d_key = $key;
-    //         if($d_key ===$key) {
-    //             $result[$index] = [
-    //                 $title_fileds[$key],
-    //                 '',
-    //                 '',
-    //                 '',
-    //                 '',
-    //                 '',
-    //                 '',
-    //                 '',
-    //                 '',
-    //                 $cat_wise_total[$key]['total_quantity'],
-    //                 $cat_wise_total[$key]['total_amount'],
-    //                 $cat_wise_total[$key]['total_taxable_amount'],
-    //                 '',
-    //                 $cat_wise_total[$key]['total_sgst'],
-    //                 '',
-    //                 $cat_wise_total[$key]['total_cgst'],
-    //                 '',
-    //                 $cat_wise_total[$key]['total_igst'],
-    //                 $cat_wise_total[$key]['total_cess'],
-    //                 $cat_wise_total[$key]['total_gst'],
-    //             ];
-    //         }
-    //     }
-    //     dd($result);
-    // }
+    public function add_index($data)
+    {
+        // dd(1);
+        $sr = 1;
+        foreach($data as $key => $product) {
+            $data[$key]['sr_no'] = $sr;
+            $sr = $sr + 1;
+        }
+
+        return $data;
+    }
 }
