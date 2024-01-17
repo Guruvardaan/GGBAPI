@@ -16,12 +16,22 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
     Private $start_date = null;
     Private $end_date = null;
     Private $report = null;
-
+    Public $array_data = null;
     public function __construct($start_date, $end_date, $report)
     {
         $this->start_date = $start_date;
         $this->end_date = $end_date;
         $this->report = $report;
+    }
+
+    public function get_data()
+    {
+        return $this->array_data;
+    }
+
+    public function set_data($data)
+    {
+        $this->array_data = $data;
     }
 
     public function headings(): array
@@ -74,31 +84,34 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
             return $formattedData;
         }
 
-        // if($this->report === 'gstr2_detail') {
-        //     $data['b2c_large_invoice'] =Helper::get_b2b_purchase_invoice(null, null, $this->start_date, $this->end_date);
-        //     $data['nil_reted'] = Helper::get_b2b_purchase_nil_reted_invoice(null, null, $this->start_date, $this->end_date);
+        if($this->report === 'gstr2_detail') {
+            $data['b2c_small_invoice'] =Helper::get_b2b_purchase_invoice(null, null, $this->start_date, $this->end_date);
+            $data['nil_reted'] = Helper::get_b2b_purchase_nil_reted_invoice(null, null, $this->start_date, $this->end_date);
+            // dd($data);
+            $data = $this->formating_data($data);
+            $data = $this->add_index($data);
+            $formattedData = array_map(function ($row) {
+                return array_map(function ($value) {
+                    if(gettype($value) === 'string') {
+                        return $value;
+                    } else {
+                        return number_format((float)$value, 2, '.', '');
+                    }
+                }, $row);
+            }, $data);
 
-        //     $data = $this->formating_data($data);
-        //     $formattedData = array_map(function ($row) {
-        //         return array_map(function ($value) {
-        //             if(gettype($value) === 'string') {
-        //                 return $value;
-        //             } else {
-        //                 return number_format((float)$value, 2, '.', '');
-        //             }
-        //         }, $row);
-        //     }, $data);
-
-        //     return $formattedData;
-        // }
+            return $formattedData;
+        }
 
         return array();
     }
 
     public function styles(Worksheet $sheet)
     {
+        $last = $this->get_last_line() + 1;
         return [
             1    => ['font' => ['bold' => true], 'height' => 30],
+            $last => ['font' => ['bold' => true]]
         ];
     }
 
@@ -145,7 +158,6 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
         $total_amount = 0.00;
         $cat_wise_total = [];
         foreach($data as $key => $item) {
-        $sr = 1;
          if(in_array($key, $fileds)) {
             $cat_wise_total[$key] = $item['total'];
             foreach($item as $p_key => $products) {
@@ -198,7 +210,6 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
                             $result[$index]['total_gst'] = !empty($product['total_gst']) ? $product['total_gst'] : 0;
                             // $result[$index]['category'] = $key;
                         }
-                        $sr = $sr + 1;
                         $total_count += $product['quantity'];
                         $total_taxable += abs($product['taxable_amount']);
                         $total_CGST += $product['CGST_amount'];
@@ -213,6 +224,7 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
             }
          }
         }
+        // dd($result);
         $total = [
             [
                 'Gross Total',
@@ -236,8 +248,8 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
                 $total_cess,
                 $total_GST,
             ]
-
         ]; 
+
         $array = $this->spareted_array($array, $total);
 
         return $array;
@@ -316,14 +328,13 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
                 $outputArray[] = $item;
             }
         }
-        // dd($total);
         $outputArray[sizeof($outputArray)] = $total[0];
         return $outputArray;
     }
 
     public function add_index($data)
     {
-        // dd(1);
+        $this->set_data($data);
         $sr = 1;
         foreach($data as $key => $product) {
             $data[$key]['sr_no'] = $sr;
@@ -331,5 +342,10 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
         }
 
         return $data;
+    }
+
+    public function get_last_line() {
+        $data = $this->get_data();
+        return sizeof($data);
     }
 }
