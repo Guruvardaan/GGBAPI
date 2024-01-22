@@ -10,18 +10,40 @@ class InventoryReportController extends Controller
 {
     public function get_inventory_report(Request $request)
     {
+        
         ini_set('max_execution_time', 14000);
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
-        $limit = !empty($request->limit) ? $request->limit : 50;
+        $limit = !empty($request->rows) ? $request->rows : 20;
+        $skip = !empty($request->first) ? $request->first : 0;
 
         $product_with_distinct_barcode = $this->get_product_with_distinct_barcode();
 
         $inventories_data = DB::table('inventory')
                             ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', '=', 'inventory.idstore_warehouse')
                             ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                            ->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')
+                            ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                            ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
                             ->select('store_warehouse.idstore_warehouse', 'product_master.idproduct_master', 'inventory.quantity As total_quantity')
                             ->whereIn('product_master.idproduct_master', $product_with_distinct_barcode);
+                   
+                 
+        if(!empty($request->field) && $request->field=="brand"){
+             $inventories_data->where('brands.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="category"){
+             $inventories_data->where('category.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="sub_category"){
+             $inventories_data->where('sub_category.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="barcode"){
+             $barcode=$request->searchTerm;
+            $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
+        }
+        
+        
         if(!empty($request->idstore_warehouse)) {
             $inventories_data->where('store_warehouse.idstore_warehouse', $request->idstore_warehouse);
         }       
@@ -30,7 +52,9 @@ class InventoryReportController extends Controller
             $inventories_data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
 
-        $inventories = $inventories_data->paginate($limit);
+        $totalRecords = $inventories_data->count();
+        $inventories = $inventories_data->skip($skip)->take($limit)->get();
+        // $inventories = $inventories_data->paginate($limit);
         
         foreach($inventories as $inventory) {
             if(!empty($inventory->idproduct_master)) {
@@ -59,7 +83,7 @@ class InventoryReportController extends Controller
             }
         }                            
         
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventories], 200);
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventories, 'total' => $totalRecords], 200);
     }
 
     public function get_product_with_distinct_barcode()
@@ -143,7 +167,7 @@ class InventoryReportController extends Controller
                                 'sub_sub_category.name AS sub_sub_category_name',
                                 'sub_sub_category.idsub_sub_category',
                                 'brands.name As brands_name',
-                                'brands.idbrand',
+                                'brands.idbrand'
                             )
                             ->first();
         return $product_data;
@@ -156,10 +180,29 @@ class InventoryReportController extends Controller
         // $ids = $this->get_product_ids();
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+         $limit = !empty($request->rows) ? $request->rows : 20;
+        $skip = !empty($request->first) ? $request->first : 0;
     
         $inventories_data = DB::table('product_master')
+         ->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')
+                              ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                               ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
         ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master');
         // ->whereIn('inventory.idproduct_master', $ids);
+        
+           if(!empty($request->field) && $request->field=="brand"){
+             $inventories_data->where('brands.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="category"){
+             $inventories_data->where('category.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="sub_category"){
+             $inventories_data->where('sub_category.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="barcode"){
+             $barcode=$request->searchTerm;
+            $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
+        }
 
         if(!empty($store_id)) {
             $inventories_data->where('inventory.idstore_warehouse', $store_id);
@@ -193,8 +236,8 @@ class InventoryReportController extends Controller
             $inventories_data->groupBy('product_master.idsub_sub_category','product_master.idproduct_master');
         }
         
-
-        $inventories = $inventories_data->get();
+         $totalRecords = $inventories_data->count();
+        $inventories = $inventories_data->skip($skip)->take($limit)->get();
         $total_expried_amount = 0;
         $total_xpiring_in_30_days_amount = 0;
         $total_not_expired_amount = 0;
@@ -229,7 +272,7 @@ class InventoryReportController extends Controller
         $inventories['total_xpiring_in_30_days_amount'] = $total_xpiring_in_30_days_amount;
         $inventories['total_not_expired_amount'] = $total_not_expired_amount;
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventories], 200);
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventories, 'total' => $totalRecords], 200);
     }
 
     public function get_expired_product($id) {
@@ -364,6 +407,7 @@ class InventoryReportController extends Controller
                     ->where('id' . $column, $id)
                     ->first();
         }
-        return $name->name;
+        return $name->name??"";
     }
 }
+
