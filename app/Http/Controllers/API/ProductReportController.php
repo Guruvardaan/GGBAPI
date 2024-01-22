@@ -52,20 +52,28 @@ class ProductReportController extends Controller
                                 'product_batch.selling_price AS selling_price',
                                 'product_batch.purchase_price AS purchase_price'        
                             );
-            $products = [];             
-
-            if(!empty($request->idcategory)) {
-                $productmaster->where('product_master.idcategory', $request->idcategory);
-            } 
-            if(!empty($request->idsub_category)) {
-                $productmaster->where('product_master.idsub_category', $request->idsub_category);
+            $products = [];      
+            
+            if(!empty($request->idstore_warehouse)) {
+                $productmaster->where('product_batch.idstore_warehouse', $request->idstore_warehouse);
             }
-            if(!empty($request->idsub_sub_category)) {
-                $productmaster->where('product_master.idsub_sub_category', $request->idsub_sub_category);    
-            } 
-            if(!empty($request->idbrand)) {
-               $productmaster->where('product_master.idbrand', $request->idbrand);
-            } 
+
+            if(!empty($request->field) && $request->field=="product"){
+                $productmaster->where('product_master.name', 'like', $request->searchTerm . '%');
+            }
+            if(!empty($request->field) && $request->field=="brand"){
+                $productmaster->where('brands.name', 'like', $request->searchTerm . '%');
+            }
+            if(!empty($request->field) && $request->field=="category"){
+                $productmaster->where('category.name', 'like', $request->searchTerm . '%');
+            }
+            if(!empty($request->field) && $request->field=="sub_category"){
+                $productmaster->where('sub_category.name', 'like', $request->searchTerm . '%');
+            }
+            if(!empty($request->field) && $request->field=="barcode"){
+                $barcode=$request->searchTerm;
+                $productmaster->where('product_master.barcode', 'like', $barcode . '%');
+            }
 
             if(!empty($start_date) &&  !empty($end_date)) {
                 $productmaster->whereBetween('product_master.created_at',[$start_date, $end_date]);
