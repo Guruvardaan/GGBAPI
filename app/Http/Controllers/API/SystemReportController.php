@@ -314,12 +314,13 @@ class SystemReportController extends Controller
         return $transformedData;
     }
 
-    public function get_sales_report()
+    public function get_sales_report(Request $request)
     {
-        $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
-        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
-        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
-        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        ini_set('max_execution_time', 14000);
+        $limit = !empty($request->rows) ? $request->rows : 50;
+        $skip = !empty($request->first) ? $request->first : 0;
+        $start_date =  !empty($request->start_date) ? $request->start_date : null;
+        $end_date = !empty($request->end_date)? $request->end_date :  null;
 
         $data = DB::table('customer_order')
                  ->join('users','users.id','=','customer_order.idcustomer')
@@ -342,20 +343,35 @@ class SystemReportController extends Controller
                              
                              
         if(!empty($start_date) && !empty($end_date)) {
-            $data->whereBetween('created_at',[$start_date, $end_date]);
+            $data->whereBetween('customer_order.created_at',[$start_date, $end_date]);
         } 
 
-        if(!empty($store_id)) {
-            $data->where('idstore_warehouse', $store_id);
+        if(!empty($request->idstore_warehouse)) {
+            $data->where('customer_order.idstore_warehouse', $request->idstore_warehouse);
         }
 
-        $sales_report_data = $data->paginate($limit);
+        if(!empty($request->field) && $request->field=="pay_mode"){
+            $data->where('customer_order.pay_mode', 'like', $request->searchTerm . '%');
+        }
+
+        if(!empty($request->field) && $request->field=="customer"){
+            $data->where('users.name', 'like', $request->searchTerm . '%');
+        }
+
+        if(!empty($request->field) && $request->field=="discount_type"){
+            $data->where('customer_order.discount_type', 'like', $request->searchTerm . '%');
+        }
+
+        $totalRecords = $data->get()->count();
+        $limit = abs($limit - $skip);
+        $sales_report_data = $data->skip($skip)->take($limit)->get(); 
+
         foreach($sales_report_data as $sales) {
             $oreder_details = $this->get_oreder_details($sales->idcustomer_order);
             $sales->oreder_details = $oreder_details;
         }                     
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $sales_report_data], 200);                           
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $sales_report_data, 'total' => $totalRecords], 200);                           
     }
 
     public function get_oreder_details($id)
