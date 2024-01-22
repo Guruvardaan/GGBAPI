@@ -368,13 +368,13 @@ class SystemReportController extends Controller
         return $order_details;
     }
 
-    public function get_cogs_report()
+    public function get_cogs_report(Request $request)
     {
         ini_set('max_execution_time', 14000);
-        $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
-        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
-        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
-        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        $limit = !empty($request->rows) ? $request->rows : 50;
+        $skip = !empty($request->first) ? $request->first : 0;
+        $start_date =  !empty($request->start_date) ? $request->start_date : null;
+        $end_date = !empty($request->end_date)? $request->end_date :  null;
 
 
 
@@ -400,7 +400,7 @@ class SystemReportController extends Controller
                     'product_master.barcode',
                     'product_batch.purchase_price AS purchase_price'        
                 );    
-     if(!empty($request->field) && $request->field=="brand"){
+        if(!empty($request->field) && $request->field=="brand"){
              $productmaster->where('brands.name', 'like', $request->searchTerm . '%');
         }
          if(!empty($request->field) && $request->field=="category"){
@@ -417,11 +417,16 @@ class SystemReportController extends Controller
         if(!empty($start_date) &&  !empty($end_date)) {
             $data->whereBetween('product_master.created_at',[$start_date, $end_date]);
         }
-        if(!empty($store_id)) {
-            $data->where('product_batch.idstore_warehouse', $store_id);
+        if(!empty($request->idstore_warehouse)) {
+            $data->where('product_batch.idstore_warehouse', $request->idstore_warehouse);
         }
-        
-        $cogs_report = $data->paginate($limit);   
+        if(!empty($request->field) && $request->field=="product"){
+            $data->where('product_master.name', 'like', $request->searchTerm . '%');
+        }
+
+        $totalRecords = $data->get()->count();
+        $limit = abs($limit - $skip);
+        $cogs_report = $data->skip($skip)->take($limit)->get(); 
 
         foreach($cogs_report as $product) {
             $inventory = $this->get_quantity($product->idproduct_master);
@@ -433,7 +438,7 @@ class SystemReportController extends Controller
             }
         }
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $cogs_report], 200);
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $cogs_report, 'total'=> $totalRecords], 200);
     }
 
     public function get_quantity($id) 
