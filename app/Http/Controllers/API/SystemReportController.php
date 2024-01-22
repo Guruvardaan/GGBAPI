@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 class SystemReportController extends Controller
 {
-    public function get_performance_report(Request $request)
+  public function get_performance_report(Request $request)
     {
         $get_best_seller = DB::table('vendor_purchases')
                                     ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
@@ -212,6 +212,7 @@ class SystemReportController extends Controller
         }
         
         $stock_levels_report_data = $data->get();
+        dd($stock_levels_report_data);
         foreach($stock_levels_report_data as $key => $product) {
             $selled_products = $this->get_selled_quantity($product->idproduct_master);
             $remaining_product = 0;
@@ -321,19 +322,24 @@ class SystemReportController extends Controller
         $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
 
         $data = DB::table('customer_order')
+                 ->join('users','users.id','=','customer_order.idcustomer')
+                  ->join('store_warehouse','store_warehouse.idstore_warehouse','=','customer_order.idstore_warehouse')
                              ->select(
-                                'idcustomer_order',
-                                'idstore_warehouse',
-                                'idcustomer',
-                                'pay_mode',
-                                'total_quantity',
-                                'total_price',
-                                'total_cgst',
-                                'total_sgst',
-                                'total_discount',
-                                'discount_type',
-                                'created_at',
+                                'customer_order.idcustomer_order',
+                                'store_warehouse.name as store',
+                                'users.name as name',
+                                'customer_order.pay_mode',
+                                'customer_order.total_quantity',
+                                'customer_order.total_price',
+                                'customer_order.total_cgst',
+                                'customer_order.total_sgst',
+                                'customer_order.total_discount',
+                                'customer_order.discount_type',
+                                'customer_order.created_at'
                              );
+                             
+                             
+                             
                              
         if(!empty($start_date) && !empty($end_date)) {
             $data->whereBetween('created_at',[$start_date, $end_date]);
@@ -369,10 +375,7 @@ class SystemReportController extends Controller
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
         $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
-        $idcategory = !empty($_GET['idcategory']) ? $_GET['idcategory'] : null;
-        $idsub_category = !empty($_GET['idsub_category']) ? $_GET['idsub_category'] : null;
-        $idsub_sub_category = !empty($_GET['idsub_sub_category']) ? $_GET['idsub_sub_category'] : null;
-        $idbrand = !empty($_GET['idbrand']) ? $_GET['idbrand'] : null;
+
 
 
         $data =  DB::table('product_master')
@@ -397,18 +400,20 @@ class SystemReportController extends Controller
                     'product_master.barcode',
                     'product_batch.purchase_price AS purchase_price'        
                 );    
-        if(!empty($idcategory)) {
-            $data->where('product_master.idcategory', $idcategory);
-        } 
-        if(!empty($idsub_category)) {
-            $data->where('product_master.idsub_category', $idsub_category);
+     if(!empty($request->field) && $request->field=="brand"){
+             $productmaster->where('brands.name', 'like', $request->searchTerm . '%');
         }
-        if(!empty($idsub_sub_category)) {
-            $data->where('product_master.idsub_sub_category', $idsub_sub_category);    
-        } 
-        if(!empty($idbrand)) {
-            $data->where('product_master.idbrand', $idbrand);
-        }  
+         if(!empty($request->field) && $request->field=="category"){
+             $productmaster->where('category.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="sub_category"){
+             $productmaster->where('sub_category.name', 'like', $request->searchTerm . '%');
+        }
+         if(!empty($request->field) && $request->field=="barcode"){
+             $barcode=$request->searchTerm;
+            $productmaster->where('product_master.barcode', 'like', $barcode . '%');
+        }
+        
         if(!empty($start_date) &&  !empty($end_date)) {
             $data->whereBetween('product_master.created_at',[$start_date, $end_date]);
         }
@@ -442,16 +447,14 @@ class SystemReportController extends Controller
         return $inventory_quantity;                      
     }
 
-    public function get_purchase_order_report()
+    public function get_purchase_order_report(Request $request)
     {
-        $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
-        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date']: null;
-        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
-        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
-        $idcategory = !empty($_GET['idcategory']) ? $_GET['idcategory'] : null;
-        $idsub_category = !empty($_GET['idsub_category']) ? $_GET['idsub_category'] : null;
-        $idsub_sub_category = !empty($_GET['idsub_sub_category']) ? $_GET['idsub_sub_category'] : null;
-        $idbrand = !empty($_GET['idbrand']) ? $_GET['idbrand'] : null;
+        // $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
+        $limit = !empty($request->rows) ? $request->rows : 50;
+        $skip = !empty($request->first) ? $request->first : 0;
+        $start_date =  !empty($request->start_date) ? $request->start_date : null;
+        $end_date = !empty($request->end_date)? $request->end_date :  null;
+        // dd($request->field);
 
         $data = DB::table('vendor_purchases_detail')
                 ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')   
@@ -479,26 +482,28 @@ class SystemReportController extends Controller
                     DB::Raw('inventory.purchase_price * vendor_purchases_detail.quantity As amount')
                 );
 
-        if(!empty($idcategory)) {
-            $data->where('product_master.idcategory', $idcategory);
-        } 
-        if(!empty($idsub_category)) {
-            $data->where('product_master.idsub_category', $idsub_category);
+        if(!empty($request->field) && $request->field=="product"){
+            $data->where('product_master.name', 'like', $request->searchTerm . '%');
         }
-        if(!empty($idsub_sub_category)) {
-            $data->where('product_master.idsub_sub_category', $idsub_sub_category);    
-        } 
-        if(!empty($idbrand)) {
-            $data->where('product_master.idbrand', $idbrand);
+        if(!empty($request->field) && $request->field=="brand"){
+            $data->where('brands.name', 'like', $request->searchTerm . '%');
+        }
+        if(!empty($request->field) && $request->field=="category"){
+                    $data->where('category.name', 'like', $request->searchTerm . '%');
+        }
+        if(!empty($request->field) && $request->field=="sub_category"){
+            $data->where('sub_category.name', 'like', $request->searchTerm . '%');
         }  
         if(!empty($start_date) &&  !empty($end_date)) {
              $data->whereBetween('vendor_purchases_detail.created_at',[$start_date, $end_date]);
+        }     
+        if(!empty($request->idstore_warehouse)) {
+            $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
         }
-        if(!empty($store_id)) {
-            $data->where('inventory.idstore_warehouse', $store_id);
-        }        
 
-        $purchase_order_report = $data->paginate($limit);   
+        $totalRecords = $data->get()->count();
+        $limit = abs($limit - $skip);
+        $purchase_order_report = $data->skip($skip)->take($limit)->get(); 
         $gross_total = 0;
         foreach($purchase_order_report as $product) {
             $cgst = 0;
@@ -517,6 +522,7 @@ class SystemReportController extends Controller
         }
         $purchase_order_report['gross_total'] = round($gross_total, 2);
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $purchase_order_report], 200);        
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $purchase_order_report, 'total' => $totalRecords], 200);        
     }
- }
+
+}
