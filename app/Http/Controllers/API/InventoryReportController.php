@@ -53,6 +53,7 @@ class InventoryReportController extends Controller
         }
 
         $totalRecords = $inventories_data->count();
+        $limit = abs($limit - $skip);
         $inventories = $inventories_data->skip($skip)->take($limit)->get();
         // $inventories = $inventories_data->paginate($limit);
         
@@ -236,6 +237,7 @@ class InventoryReportController extends Controller
         }
         
         $totalRecords = $inventories_data->get()->count();
+        $limit = abs($limit - $skip);
         $inventories = $inventories_data->skip($skip)->take($limit)->get();
         $total_expried_amount = 0;
         $total_xpiring_in_30_days_amount = 0;

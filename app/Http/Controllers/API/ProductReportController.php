@@ -15,7 +15,9 @@ class ProductReportController extends Controller
         try{
             $start_date =  !empty($request->start_date) ? $request->start_date : null;
             $end_date = !empty($request->end_date)? $request->end_date :  null;
-            $limit = !empty($request->limit) ? $request->limit : 50; 
+            // $limit = !empty($request->limit) ? $request->limit : 50; 
+            $limit = !empty($request->rows) ? $request->rows : 50;
+            $skip = !empty($request->first) ? $request->first : 0;
         
             $productmaster = DB::table('product_master')
                             ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'product_master.idproduct_master')
@@ -78,8 +80,9 @@ class ProductReportController extends Controller
             if(!empty($start_date) &&  !empty($end_date)) {
                 $productmaster->whereBetween('product_master.created_at',[$start_date, $end_date]);
             }    
-            
-            $products = $productmaster->paginate($limit);
+
+            $totalRecords = $productmaster->get()->count();
+            $products = $productmaster->skip($skip)->take($limit)->get();
 
             foreach($products as $product)
             {   $product->selling_margin_rupees = $product->mrp - $product->selling_price;
@@ -90,7 +93,7 @@ class ProductReportController extends Controller
                 $product->purchase_margin_rupees = !empty($gst) ? $product->mrp - ($product->purchase_price +  (($product->purchase_price * $gst)/100)) : $product->mrp - $product->purchase_price;
                 $product->purchase_margin_percentage = !empty($product->purchase_margin_rupees) ? ($product->purchase_margin_rupees *  $product->mrp)/ 100 : 0;
             }
-            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $products], 200);
+            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $products, 'total' => $totalRecords], 200);
         } catch (Exception $e) {
             return response()->json(["statusCode" => 1, "message" => "Error", "err" => $e->getMessage()], 200);
         }
