@@ -177,20 +177,19 @@ class InventoryReportController extends Controller
     {
         $store_id = !empty($request->store_id) ? $request->store_id : null;
         $graph_type = !empty($request->graph_type) ? $request->graph_type : null;
-        // $ids = $this->get_product_ids();
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
-         $limit = !empty($request->rows) ? $request->rows : 20;
+        $limit = !empty($request->rows) ? $request->rows : 50;
         $skip = !empty($request->first) ? $request->first : 0;
     
         $inventories_data = DB::table('product_master')
-         ->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')
-                              ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
-                               ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
-        ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master');
+                            // ->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')
+                            // ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                            // ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                            ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master');
         // ->whereIn('inventory.idproduct_master', $ids);
         
-           if(!empty($request->field) && $request->field=="brand"){
+        if(!empty($request->field) && $request->field=="brand"){
              $inventories_data->where('brands.name', 'like', $request->searchTerm . '%');
         }
          if(!empty($request->field) && $request->field=="category"){
@@ -213,7 +212,7 @@ class InventoryReportController extends Controller
         }
     
         if($graph_type === 'brands') {
-            $inventories_data->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
+            $inventories_data->RightJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
             $inventories_data->select('product_master.idbrand','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
             $inventories_data->groupBy('product_master.idbrand','product_master.idproduct_master');
         }
@@ -236,12 +235,12 @@ class InventoryReportController extends Controller
             $inventories_data->groupBy('product_master.idsub_sub_category','product_master.idproduct_master');
         }
         
-         $totalRecords = $inventories_data->count();
+        $totalRecords = $inventories_data->get()->count();
         $inventories = $inventories_data->skip($skip)->take($limit)->get();
         $total_expried_amount = 0;
         $total_xpiring_in_30_days_amount = 0;
         $total_not_expired_amount = 0;
-
+        
         foreach($inventories as $inventory) {
             $expired_data = $this->get_expired_product($inventory->idproduct_master);
             $expiring_data = $this->get_expiring_in_30days($inventory->idproduct_master);
@@ -364,28 +363,28 @@ class InventoryReportController extends Controller
                     ];
                 }
             } else {
-                $idcategory = $item->idcategory;
-                $idsub_category = $item->idsub_category;
-                $idsub_sub_category = $item->idsub_sub_category;
-                $key = "{$idcategory}-{$idsub_category}-{$idsub_sub_category}";
+                $idproduct_master = !empty($item->idproduct_master) ? $item->idproduct_master : '';
+                $key = "{$idproduct_master}";
                 if (!isset($transformedData[$key])) {
                     $transformedData[$key] = [
-                        'idcategory' => $idcategory,
-                        'idsub_category' => $idsub_category,
-                        'idsub_sub_category' => $idsub_sub_category,
-                        'totals' => [],
+                        'idproduct_master' => !empty($item->idproduct_master) ? $item->idproduct_master : '',
+                        'product_name' => !empty($item->product_name) ? $item->product_name : '',
+                        'expired' => $item->expried,
+                        'expiring_in_30days_amount' => $item->expiring_in_30_days,
+                        'not_expired' => $item->not_expired,
                     ];
                 }
             }
             
-
-            $transformedData[$key]['totals'][] = [
-                'idproduct_master' => !empty($item->idproduct_master) ? $item->idproduct_master : '',
-                'product_name' => !empty($item->product_name) ? $item->product_name : '',
-                'expired' => $item->expried,
-                'expiring_in_30days_amount' => $item->expiring_in_30_days,
-                'not_expired' => $item->not_expired,
-            ];
+            if($graph_type === 'sub_category' || $graph_type === 'category' || $graph_type === 'sub_sub_category' || $graph_type === 'brands') {
+                $transformedData[$key]['totals'][] = [
+                    'idproduct_master' => !empty($item->idproduct_master) ? $item->idproduct_master : '',
+                    'product_name' => !empty($item->product_name) ? $item->product_name : '',
+                    'expired' => $item->expried,
+                    'expiring_in_30days_amount' => $item->expiring_in_30_days,
+                    'not_expired' => $item->not_expired,
+                ];
+            }
         }
 
         $transformedData = array_values($transformedData);
