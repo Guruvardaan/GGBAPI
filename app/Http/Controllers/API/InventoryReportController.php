@@ -190,24 +190,6 @@ class InventoryReportController extends Controller
                             ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master');
         // ->whereIn('inventory.idproduct_master', $ids);
         
-        if(!empty($request->field) && $request->field=="brand"){
-             $inventories_data->where('brands.name', 'like', $request->searchTerm . '%');
-        }
-         if(!empty($request->field) && $request->field=="category"){
-             $inventories_data->where('category.name', 'like', $request->searchTerm . '%');
-        }
-         if(!empty($request->field) && $request->field=="sub_category"){
-             $inventories_data->where('sub_category.name', 'like', $request->searchTerm . '%');
-        }
-         if(!empty($request->field) && $request->field=="barcode"){
-             $barcode=$request->searchTerm;
-            $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
-        }
-
-        if(!empty($store_id)) {
-            $inventories_data->where('inventory.idstore_warehouse', $store_id);
-        }
-
         if(!empty($start_date) &&  !empty($end_date)) {
             $inventories_data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
@@ -235,6 +217,28 @@ class InventoryReportController extends Controller
             $inventories_data->select('product_master.idsub_sub_category','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
             $inventories_data->groupBy('product_master.idsub_sub_category','product_master.idproduct_master');
         }
+
+        if(!empty($request->field) && $request->field =="brand"){
+            $inventories_data->where('brands.name', 'like', $request->searchTerm . '%');
+       }
+        if(!empty($request->field) && $request->field=="category"){
+            $inventories_data->where('category.name', 'like', $request->searchTerm . '%');
+       }
+        if(!empty($request->field) && $request->field=="sub_category"){
+            $inventories_data->where('sub_category.name', 'like', $request->searchTerm . '%');
+       }
+        if(!empty($request->field) && $request->field=="barcode"){
+            $barcode=$request->searchTerm;
+           $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
+       }
+       if(!empty($request->field) && $request->field=="product"){
+           $inventories_data->where('product_master.name', 'like', $request->searchTerm . '%');
+       }
+
+       if(!empty($store_id)) {
+           $inventories_data->where('inventory.idstore_warehouse', $store_id);
+       }
+
         
         $totalRecords = $inventories_data->get()->count();
         $limit = abs($limit - $skip);
