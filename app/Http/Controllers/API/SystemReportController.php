@@ -417,17 +417,17 @@ class SystemReportController extends Controller
                     'product_batch.purchase_price AS purchase_price'        
                 );    
         if(!empty($request->field) && $request->field=="brand"){
-             $productmaster->where('brands.name', 'like', $request->searchTerm . '%');
+             $data->where('brands.name', 'like', $request->searchTerm . '%');
         }
          if(!empty($request->field) && $request->field=="category"){
-             $productmaster->where('category.name', 'like', $request->searchTerm . '%');
+             $data->where('category.name', 'like', $request->searchTerm . '%');
         }
          if(!empty($request->field) && $request->field=="sub_category"){
-             $productmaster->where('sub_category.name', 'like', $request->searchTerm . '%');
+             $data->where('sub_category.name', 'like', $request->searchTerm . '%');
         }
          if(!empty($request->field) && $request->field=="barcode"){
              $barcode=$request->searchTerm;
-            $productmaster->where('product_master.barcode', 'like', $barcode . '%');
+            $data->where('product_master.barcode', 'like', $barcode . '%');
         }
         
         if(!empty($start_date) &&  !empty($end_date)) {
