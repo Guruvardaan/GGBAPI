@@ -196,6 +196,8 @@ class SystemReportController extends Controller
         ini_set('max_execution_time', 14000);
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $limit = !empty($request->rows) ? $request->rows : 20;
+        $skip = !empty($request->first) ? $request->first : 0;
 
         $data = DB::table('inventory')
                            ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
@@ -211,8 +213,9 @@ class SystemReportController extends Controller
             $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
         
-        $stock_levels_report_data = $data->get();
-        dd($stock_levels_report_data);
+        $totalRecords = $data->count();
+        $limit = abs($limit - $skip);
+        $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
         foreach($stock_levels_report_data as $key => $product) {
             $selled_products = $this->get_selled_quantity($product->idproduct_master);
             $remaining_product = 0;
@@ -234,7 +237,7 @@ class SystemReportController extends Controller
         $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
         $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);                            
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $totalRecords], 200);                            
     }
 
     public function get_selled_quantity($id)
