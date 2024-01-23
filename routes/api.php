@@ -51,6 +51,7 @@ Route::controller(InventoryThresholdController::class)->group(function () {
         Route::post('edit/{id}', 'update');
         Route::get('view/{id}', 'show');
         Route::delete('delete/{id}', 'destroy');
+        Route::post('multiple-create', 'multiple_create');
     });    
 });
 

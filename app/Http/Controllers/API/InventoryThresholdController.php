@@ -609,4 +609,50 @@ class InventoryThresholdController extends Controller
         $vendor = DB::table('vendor')->select('name')->where('idvendor', $id)->first();
         return !empty($vendor->name) ? $vendor->name : '';
     }
+
+    public function multiple_create(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                '*.idproduct_master' => 'required|integer',
+                '*.idstore_warehouse' => 'required|integer',
+                '*.threshold_quantity' => 'required|integer',
+                '*.sent_quantity' => 'required|integer',
+            ]);
+    
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+    
+            $createdData = [];
+    
+            foreach ($request->all() as $record) {
+                $data = [
+                    'idproduct_master' => $record['idproduct_master'],
+                    'idstore_warehouse' => $record['idstore_warehouse'],
+                    'threshold_quantity' => $record['threshold_quantity'],
+                    'sent_quantity' => $record['sent_quantity'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+    
+                $id = DB::table('inventory_threshold')->insertGetId($data);
+    
+                if (!empty($id)) {
+                    $createdData[] = DB::table('inventory_threshold')->find($id);
+                }
+            }
+    
+            return response()->json([
+                "statusCode" => 0,
+                "message" => "Inventory Threshold Added Successfully.",
+                "data" => $createdData
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                "statusCode" => 1,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
