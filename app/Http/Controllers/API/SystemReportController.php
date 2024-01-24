@@ -62,7 +62,8 @@ class SystemReportController extends Controller
         ini_set('max_execution_time', 14000);
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
-        $limit = !empty($request->limit) ? $request->limit : 25; 
+        $limit = !empty($request->rows) ? $request->rows : 20;
+        $skip = !empty($request->first) ? $request->first : 0;
 
         $profitability = DB::table('inventory')
                          ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
@@ -76,6 +77,7 @@ class SystemReportController extends Controller
             $product->profit_report['listing_profit']['unit_margin'] = round(($product->selling_price - $product->purchase_price)/$product->total_quantity, 3);
             $product->profit_report['trending_profit'] = $this->get_trending_profitability($product->idproduct_master, $start_date, $end_date);
         }
+        $total = $profitability->paginate(20)->total();
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $profitability], 200);
     }
 
@@ -201,7 +203,7 @@ class SystemReportController extends Controller
 
         try {
             $data = DB::table('inventory')
-                           ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                           ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                            ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
                            ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse');
                                     
@@ -213,7 +215,8 @@ class SystemReportController extends Controller
                 $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
             }
         
-            $stock_levels_report_data = $data->paginate(20);
+            $total = $data->paginate(20)->total();
+            $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
             $productIds = $stock_levels_report_data->pluck('idproduct_master')->unique()->toArray();
             $selled_products = $this->get_selled_quantity($productIds);
 
@@ -232,7 +235,7 @@ class SystemReportController extends Controller
             $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
             $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
 
-            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $stock_levels_report_data->total()], 200);                            
+            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $total], 200);                            
         
         } catch (QueryException $e) {
            
