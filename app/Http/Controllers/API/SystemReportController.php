@@ -214,34 +214,29 @@ class SystemReportController extends Controller
                 $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
             }
         
-            $totalRecords = $data->paginate(2)->total();
-            $limit = abs($limit - $skip);
-            $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
-            $productIds = $stock_levels_report_data->pluck('idproduct_master')->toArray();
-            $selled_products = $this->get_selled_quantity(array_unique($productIds));
-            // dd($selled_products);
-            foreach($stock_levels_report_data as $key => $product) {
+            $stock_levels_report_data = $data->paginate(20);
+            $productIds = $stock_levels_report_data->pluck('idproduct_master')->unique()->toArray();
+            $selled_products = $this->get_selled_quantity($productIds);
+
+            $stock_levels_report_data->each(function ($product) use ($selled_products) {
                 $remaining_product = 0;
-                foreach($selled_products as $selled_product) {
-                    if($product->idproduct_master === $selled_product->idproduct_master && $product->idstore_warehouse === $selled_product->idstore_warehouse) {
+                foreach ($selled_products as $selled_product) {
+                    if ($product->idproduct_master === $selled_product->idproduct_master && $product->idstore_warehouse === $selled_product->idstore_warehouse) {
                         $remaining_product = $product->total_quantity - $selled_product->total_quantity;
-                        $product->remaining_product = abs($remaining_product);
                         break;
                     }
-                    $remaining_product = $product->total_quantity;
-                    $product->remaining_product = abs($remaining_product);
                 }
-            }
-            
+                $product->remaining_product = abs($remaining_product);
+            });
+        
             $data = [];
             $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
             $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
 
-            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $totalRecords], 200);                            
+            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $stock_levels_report_data->total()], 200);                            
         
         } catch (QueryException $e) {
-            DB::reconnect();
-            $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
+           
         }
 
         
