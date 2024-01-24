@@ -65,12 +65,14 @@ class SystemReportController extends Controller
         $limit = !empty($request->rows) ? $request->rows : 20;
         $skip = !empty($request->first) ? $request->first : 0;
 
-        $profitability = DB::table('inventory')
+        $data = DB::table('inventory')
                          ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                          ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                          ->select('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
-                         ->groupBy('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price')
-                         ->paginate($limit);
+                         ->groupBy('inventory.idproduct_master', 'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price');
+
+        $total = $data->paginate(20)->total();
+        $profitability = $data->skip($skip)->take($limit)->get();
         foreach($profitability as $product) {
             $product->profit_report['sku_profit'] =  round(($product->selling_price - $product->purchase_price) * $product->total_quantity, 3);
             $product->profit_report['listing_profit']['gross_margin'] = round($product->selling_price - $product->purchase_price, 3);
@@ -230,11 +232,11 @@ class SystemReportController extends Controller
                 }
                 $product->remaining_product = abs($remaining_product);
             });
+            
         
             $data = [];
             $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
-            $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
-
+            $data['replenishment_products'] = array_values($stock_levels_report_data->where('remaining_product', 0)->toArray());
             return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $total], 200);                            
         
         } catch (QueryException $e) {
