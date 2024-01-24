@@ -201,8 +201,8 @@ class SystemReportController extends Controller
 
         try {
             $data = DB::table('inventory')
-                           ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
-                           ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
+                           ->join('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                           ->join('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                            ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
                            ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse');
                                     
@@ -214,7 +214,7 @@ class SystemReportController extends Controller
                 $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
             }
         
-            $totalRecords = $data->count();
+            $totalRecords = $data->paginate(10)->total();
             $limit = abs($limit - $skip);
             $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
             foreach($stock_levels_report_data as $key => $product) {
