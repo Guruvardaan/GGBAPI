@@ -199,45 +199,53 @@ class SystemReportController extends Controller
         $limit = !empty($request->rows) ? $request->rows : 20;
         $skip = !empty($request->first) ? $request->first : 0;
 
-        $data = DB::table('inventory')
+        try {
+            $data = DB::table('inventory')
                            ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                            ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
                            ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse');
                                     
-        if(!empty($request->idstore_warehouse)) {
-            $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
-        }
+            if(!empty($request->idstore_warehouse)) {
+                $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
+            }
         
-        if(!empty($start_date) &&  !empty($end_date)) {
-            $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
-        }
+            if(!empty($start_date) &&  !empty($end_date)) {
+                $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
+            }
         
-        $totalRecords = $data->count();
-        $limit = abs($limit - $skip);
-        $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
-        foreach($stock_levels_report_data as $key => $product) {
-            $selled_products = $this->get_selled_quantity($product->idproduct_master);
-            $remaining_product = 0;
-            foreach($selled_products as $selled_product) {
-                if($product->idproduct_master === $selled_product->idproduct_master) {
-                    if($product->idstore_warehouse === $selled_product->idstore_warehouse) {
-                        $remaining_product = $product->total_quantity - $selled_product->total_quantity;
-                        $product->remaining_product = abs($remaining_product);
-                        break;
-                    } else {
-                        $remaining_product = $product->total_quantity;
-                        $product->remaining_product = abs($remaining_product);
+            $totalRecords = $data->count();
+            $limit = abs($limit - $skip);
+            $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
+            foreach($stock_levels_report_data as $key => $product) {
+                $selled_products = $this->get_selled_quantity($product->idproduct_master);
+                $remaining_product = 0;
+                foreach($selled_products as $selled_product) {
+                    if($product->idproduct_master === $selled_product->idproduct_master) {
+                        if($product->idstore_warehouse === $selled_product->idstore_warehouse) {
+                            $remaining_product = $product->total_quantity - $selled_product->total_quantity;
+                            $product->remaining_product = abs($remaining_product);
+                            break;
+                        } else {
+                            $remaining_product = $product->total_quantity;
+                            $product->remaining_product = abs($remaining_product);
+                        }
                     }
                 }
             }
-        }
         
-        $data = [];
-        $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
-        $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
+            $data = [];
+            $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
+            $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $totalRecords], 200);                            
+            return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $totalRecords], 200);                            
+        
+        } catch (QueryException $e) {
+            DB::reconnect();
+            $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
+        }
+
+        
     }
 
     public function get_selled_quantity($id)
