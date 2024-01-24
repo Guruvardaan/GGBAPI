@@ -214,26 +214,25 @@ class SystemReportController extends Controller
                 $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
             }
         
-            $totalRecords = $data->paginate(10)->total();
+            $totalRecords = $data->paginate(2)->total();
             $limit = abs($limit - $skip);
             $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
+            $productIds = $stock_levels_report_data->pluck('idproduct_master')->toArray();
+            $selled_products = $this->get_selled_quantity(array_unique($productIds));
+            // dd($selled_products);
             foreach($stock_levels_report_data as $key => $product) {
-                $selled_products = $this->get_selled_quantity($product->idproduct_master);
                 $remaining_product = 0;
                 foreach($selled_products as $selled_product) {
-                    if($product->idproduct_master === $selled_product->idproduct_master) {
-                        if($product->idstore_warehouse === $selled_product->idstore_warehouse) {
-                            $remaining_product = $product->total_quantity - $selled_product->total_quantity;
-                            $product->remaining_product = abs($remaining_product);
-                            break;
-                        } else {
-                            $remaining_product = $product->total_quantity;
-                            $product->remaining_product = abs($remaining_product);
-                        }
+                    if($product->idproduct_master === $selled_product->idproduct_master && $product->idstore_warehouse === $selled_product->idstore_warehouse) {
+                        $remaining_product = $product->total_quantity - $selled_product->total_quantity;
+                        $product->remaining_product = abs($remaining_product);
+                        break;
                     }
+                    $remaining_product = $product->total_quantity;
+                    $product->remaining_product = abs($remaining_product);
                 }
             }
-        
+            
             $data = [];
             $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
             $data['replenishment_products'] = $stock_levels_report_data->where('remaining_product', 0);
@@ -251,10 +250,10 @@ class SystemReportController extends Controller
     public function get_selled_quantity($id)
     {
         $selled_quantity = DB::table('vendor_purchases')
-                                        ->rightJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases') 
+                                        ->join('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases') 
                                         ->select('vendor_purchases.idstore_warehouse', 'vendor_purchases_detail.idproduct_master', DB::raw('sum(vendor_purchases_detail.quantity) as total_quantity'))
                                         ->groupBy('vendor_purchases.idstore_warehouse', 'vendor_purchases_detail.idproduct_master')
-                                        ->where('vendor_purchases_detail.idproduct_master', $id)
+                                        ->whereIn('vendor_purchases_detail.idproduct_master', $id)
                                         ->get();  
         return $selled_quantity;                                
     }
