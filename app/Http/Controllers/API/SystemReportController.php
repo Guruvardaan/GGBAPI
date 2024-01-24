@@ -201,8 +201,7 @@ class SystemReportController extends Controller
 
         try {
             $data = DB::table('inventory')
-                           ->join('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
-                           ->join('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
+                           ->rightJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                            ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
                            ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse');
                                     
