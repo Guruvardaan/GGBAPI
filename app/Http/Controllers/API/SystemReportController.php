@@ -480,12 +480,11 @@ class SystemReportController extends Controller
     public function get_purchase_order_report(Request $request)
     {
         // $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
-        $limit = !empty($request->rows) ? $request->rows : 50;
-        $skip = !empty($request->first) ? $request->first : 0;
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
-        // dd($request->field);
-
+      
         $data = DB::table('vendor_purchases_detail')
                 ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')   
                 ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
@@ -493,9 +492,12 @@ class SystemReportController extends Controller
                 ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
                 ->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category')
                 ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                ->leftJoin('vendor_purchases', 'vendor_purchases.idvendor_purchases', '=', 'vendor_purchases_detail.idvendor_purchases')
+                ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
                 ->select(
                     'inventory.idstore_warehouse',
                     'inventory.idproduct_master',
+                    'vendor.name AS vendor_name',
                     'product_master.name',
                     'product_master.idcategory',
                     'category.name As category_name',
@@ -508,36 +510,42 @@ class SystemReportController extends Controller
                     'vendor_purchases_detail.quantity',
                     'product_master.cgst',
                     'product_master.sgst',
+                    'product_master.igst',
                     'inventory.purchase_price',
                     DB::Raw('inventory.purchase_price * vendor_purchases_detail.quantity As amount')
                 );
 
-        if(!empty($request->field) && $request->field=="product"){
-            $data->where('product_master.name', 'like', $request->searchTerm . '%');
+        if(!empty($_GET['field']) && $_GET['field']=="product"){
+            $data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
         }
-        if(!empty($request->field) && $request->field=="brand"){
-            $data->where('brands.name', 'like', $request->searchTerm . '%');
+        if(!empty($_GET['field']) && $_GET['field']=="brand"){
+            $data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
         }
-        if(!empty($request->field) && $request->field=="category"){
-                    $data->where('category.name', 'like', $request->searchTerm . '%');
+        if(!empty($_GET['field']) && $_GET['field']=="category"){
+                    $data->where('category.name', 'like', $_GET['searchTerm'] . '%');
         }
-        if(!empty($request->field) && $request->field=="sub_category"){
-            $data->where('sub_category.name', 'like', $request->searchTerm . '%');
+        if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
+            $data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
         }  
         if(!empty($start_date) &&  !empty($end_date)) {
              $data->whereBetween('vendor_purchases_detail.created_at',[$start_date, $end_date]);
+        }
+        if(!empty($_GET['field']) && $_GET['field']=="vendor"){
+            $data->where('vendor.name', 'like', $_GET['searchTerm'] . '%');
         }     
-        if(!empty($request->idstore_warehouse)) {
-            $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
+        if(!empty($_GET['idstore_warehouse'])) {
+            $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
         }
 
-        $totalRecords = $data->get()->count();
+        $totalRecords = $data->paginate(20)->total();
         $limit = abs($limit - $skip);
         $purchase_order_report = $data->skip($skip)->take($limit)->get(); 
+        // dd($purchase_order_report);
         $gross_total = 0;
         foreach($purchase_order_report as $product) {
             $cgst = 0;
             $sgst = 0;
+            $igst = 0;
             $product->amount = round($product->amount, 2);
             if(!empty($product->cgst)) {
                 $cgst = $product->amount * ($product->cgst/100);
@@ -545,6 +553,12 @@ class SystemReportController extends Controller
             if(!empty($product->sgst)) {
                 $sgst = $product->amount * ($product->sgst/100);
             }
+            if(!empty($product->igst)) {
+                $sgst = $product->amount * ($product->igst/100);
+            }
+            $product->cgst_amount = $cgst;
+            $product->sgst_amount = $sgst;
+            $product->igst_amount = $igst;
 
             $total_amount_with_tax = $product->amount + $sgst + $cgst;
             $product->total_amount_with_tax = round($total_amount_with_tax, 2);
