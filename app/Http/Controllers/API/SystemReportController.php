@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 class SystemReportController extends Controller
 {
   public function get_performance_report(Request $request)
-    {
+  {
         $get_best_seller = DB::table('vendor_purchases')
                                     ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
                                     ->groupBy('idvendor')
@@ -29,7 +29,7 @@ class SystemReportController extends Controller
         $data['get_worst_seller']->total_sales = $get_worst_seller->total_sales;
         $data['get_year_over_year_growth'] = $get_year_over_year_growth;               
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);                                   
-    }
+  }
 
     public function get_year_over_year_growth() 
     {
@@ -326,18 +326,120 @@ class SystemReportController extends Controller
     public function get_sales_report(Request $request)
     {
         ini_set('max_execution_time', 14000);
-        $limit = !empty($request->rows) ? $request->rows : 50;
-        $skip = !empty($request->first) ? $request->first : 0;
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $report_type = !empty($_GET['report_type']) ? $_GET['report_type'] : 'artical_wise';
+        
+        $final_data = [];
 
-        $data = DB::table('customer_order')
-                 ->join('users','users.id','=','customer_order.idcustomer')
+        if($report_type === 'product_wise') {
+            $data = DB::table('order_detail')
+                            ->leftJoin('customer_order', 'customer_order.idcustomer_order', '=', 'order_detail.idcustomer_order')
+                            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                            ->select('product_master.name', DB::raw('sum(order_detail.quantity) as units_sold'), 'order_detail.total_price As price')
+                            ->groupBy('product_master.name','order_detail.total_price');
+
+            if(!empty($_GET['searchTerm'])) {
+                $data->where('product_master.name', 'like', $_GET['searchTerm']. '%');
+            }   
+            
+            if(!empty($_GET['start_date']) && !empty($_GET['end_date'])) {
+                $data->whereBetween('customer_order.created_at',[$_GET['start_date'], $_GET['end_date']]);
+            } 
+
+            if(!empty($_GET['idstore_warehouse'])) {
+                $data->where('customer_order.idstore_warehouse', $_GET['idstore_warehouse']);
+            }
+
+            $product_data = $data->skip($skip)->take($limit)->get();             
+            foreach($product_data as $product) {
+                $product->revenue = $product->units_sold * $product->price;
+            } 
+            $final_data = $product_data;
+            $totalRecords = $data->paginate(20)->total();             
+        } else if($report_type === 'category_wise') {
+            $data = DB::table('order_detail')
+                            ->leftJoin('customer_order', 'customer_order.idcustomer_order', '=', 'order_detail.idcustomer_order')
+                            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                            ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                            ->select('category.name', DB::raw('sum(order_detail.quantity) as units_sold'), 'order_detail.total_price As price', 'category.idcategory')
+                            ->groupBy('category.name','order_detail.total_price', 'category.idcategory');
+
+            if(!empty($_GET['searchTerm'])) {
+                $data->where('category.name', 'like', $_GET['searchTerm']. '%');
+            }
+
+            if(!empty($_GET['start_date']) && !empty($_GET['end_date'])) {
+                $data->whereBetween('customer_order.created_at',[$_GET['start_date'], $_GET['end_date']]);
+            } 
+
+            if(!empty($_GET['idstore_warehouse'])) {
+                $data->where('customer_order.idstore_warehouse', $_GET['idstore_warehouse']);
+            }
+
+            $categoty_wise_data = $data->skip($skip)->take($limit)->get();              
+            foreach($categoty_wise_data as $product) {
+                $product->revenue = $product->units_sold * $product->price;
+            } 
+
+            $processedData = [];
+
+            foreach ($categoty_wise_data as $item) {
+                $itemName = $item->name;
+                if (!isset($processedData[$itemName])) {
+                    $processedData[$itemName] = [
+                        "name" => $itemName,
+                        "units_sold" => 0,
+                        "revenue" => 0
+                    ];
+                }   
+
+                $processedData[$itemName]["units_sold"] += $item->units_sold;
+                $processedData[$itemName]["revenue"] += $item->revenue;
+            }
+            $final_data = array_values($processedData);
+            $totalRecords = sizeof($final_data);             
+        } else if($report_type === 'top_selling') {
+             $data = DB::table('order_detail')
+                            ->leftJoin('customer_order', 'customer_order.idcustomer_order', '=', 'order_detail.idcustomer_order')
+                            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                            ->select(DB::raw('count(product_master.name) as rank' ), 'product_master.name', DB::raw('sum(order_detail.quantity) as units_sold'), 'order_detail.total_price As price')
+                            ->groupBy('product_master.name','order_detail.total_price')
+                            ->orderBy('units_sold', 'desc');
+
+            if(!empty($_GET['searchTerm'])) {
+                $data->where('product_master.name', 'like', $_GET['searchTerm']. '%');
+            }
+            
+            if(!empty($_GET['start_date']) && !empty($_GET['end_date'])) {
+                $data->whereBetween('customer_order.created_at',[$_GET['start_date'], $_GET['end_date']]);
+            } 
+
+            if(!empty($_GET['idstore_warehouse'])) {
+                $data->where('customer_order.idstore_warehouse', $_GET['idstore_warehouse']);
+            }
+            
+            $product_data = $data->skip($skip)->take($limit)->get();  
+            $rank = 1;           
+            foreach($product_data as $product) {
+                $product->revenue = $product->units_sold * $product->price;
+                $product->rank = $rank;
+                $rank = $rank + 1;
+            } 
+            $final_data = $product_data;
+            $totalRecords = $data->paginate(20)->total();
+        } else {
+            $data = DB::table('customer_order')
+                  ->rightJoin('users','users.id','=','customer_order.idcustomer')
+                  ->rightJoin('counters', 'counters.id', '=', 'customer_order.idcounter')
                   ->join('store_warehouse','store_warehouse.idstore_warehouse','=','customer_order.idstore_warehouse')
                              ->select(
                                 'customer_order.idcustomer_order',
                                 'store_warehouse.name as store',
                                 'users.name as name',
+                                'counters.name As counter',
                                 'customer_order.pay_mode',
                                 'customer_order.total_quantity',
                                 'customer_order.total_price',
@@ -348,39 +450,38 @@ class SystemReportController extends Controller
                                 'customer_order.created_at'
                              );
                              
-                             
-                             
-                             
-        if(!empty($start_date) && !empty($end_date)) {
-            $data->whereBetween('customer_order.created_at',[$start_date, $end_date]);
-        } 
+            if(!empty($start_date) && !empty($end_date)) {
+                $data->whereBetween('customer_order.created_at',[$start_date, $end_date]);
+            } 
 
-        if(!empty($request->idstore_warehouse)) {
-            $data->where('customer_order.idstore_warehouse', $request->idstore_warehouse);
-        }
+            if(!empty($request->idstore_warehouse)) {
+                $data->where('customer_order.idstore_warehouse', $request->idstore_warehouse);
+            }
 
-        if(!empty($request->field) && $request->field=="pay_mode"){
-            $data->where('customer_order.pay_mode', 'like', $request->searchTerm . '%');
-        }
+            if(!empty($request->field) && $request->field=="pay_mode"){
+                $data->where('customer_order.pay_mode', 'like', $request->searchTerm . '%');
+            }
 
-        if(!empty($request->field) && $request->field=="customer"){
-            $data->where('users.name', 'like', $request->searchTerm . '%');
-        }
+            if(!empty($request->field) && $request->field=="customer"){
+                $data->where('users.name', 'like', $request->searchTerm . '%');
+            }
 
-        if(!empty($request->field) && $request->field=="discount_type"){
-            $data->where('customer_order.discount_type', 'like', $request->searchTerm . '%');
-        }
+            if(!empty($request->field) && $request->field=="discount_type"){
+                $data->where('customer_order.discount_type', 'like', $request->searchTerm . '%');
+            }
 
-        $totalRecords = $data->get()->count();
-        $limit = abs($limit - $skip);
-        $sales_report_data = $data->skip($skip)->take($limit)->get(); 
+            $totalRecords = $data->paginate(20)->total();
+            $limit = abs($limit - $skip);
+            $sales_report_data = $data->skip($skip)->take($limit)->get(); 
 
-        foreach($sales_report_data as $sales) {
-            $oreder_details = $this->get_oreder_details($sales->idcustomer_order);
-            $sales->oreder_details = $oreder_details;
-        }                     
+            foreach($sales_report_data as $sales) {
+                $oreder_details = $this->get_oreder_details($sales->idcustomer_order);
+                $sales->oreder_details = $oreder_details;
+            }
+            $final_data = $sales_report_data;
+        }                 
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $sales_report_data, 'total' => $totalRecords], 200);                           
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $final_data, 'total' => $totalRecords], 200);                           
     }
 
     public function get_oreder_details($id)
