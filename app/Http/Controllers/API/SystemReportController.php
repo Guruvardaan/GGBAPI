@@ -430,10 +430,47 @@ class SystemReportController extends Controller
             } 
             $final_data = $product_data;
             $totalRecords = $data->paginate(20)->total();
-        } else {
+        } else if($report_type === 'inventory_status') {
+            $data = DB::table('order_detail')
+                           ->leftJoin('customer_order', 'customer_order.idcustomer_order', '=', 'order_detail.idcustomer_order')
+                           ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                           ->select('product_master.name', 'order_detail.idproduct_master')
+                           ->groupBy('product_master.name', 'order_detail.idproduct_master');
+
+           if(!empty($_GET['searchTerm'])) {
+               $data->where('product_master.name', 'like', $_GET['searchTerm']. '%');
+           }
+           
+           if(!empty($_GET['start_date']) && !empty($_GET['end_date'])) {
+               $data->whereBetween('customer_order.created_at',[$_GET['start_date'], $_GET['end_date']]);
+           } 
+
+           if(!empty($_GET['idstore_warehouse'])) {
+               $data->where('customer_order.idstore_warehouse', $_GET['idstore_warehouse']);
+           }
+           
+           $product_data = $data->skip($skip)->take($limit)->get();
+           $totalRecords = $data->paginate(20)->total();            
+           foreach($product_data as $product) {
+               $inventory = DB::table('inventory')->select('quantity', 'mrp')->where('idproduct_master', $product->idproduct_master);
+               if(!empty($_GET['idstore_warehouse'])) {
+                $inventory->where('idstore_warehouse', $_GET['idstore_warehouse']);
+               }
+               $inventory_data = $inventory->get();
+               $stock_quantity = 0;
+               $stock_value = 0;
+               foreach($inventory_data as $data) {
+                 $stock_quantity += $data->quantity;
+                 $stock_value += ($data->quantity * $data->mrp);
+               }
+               $product->stock_quantity = $stock_quantity;
+               $product->stock_value = $stock_value;
+           } 
+           $final_data = $product_data;
+       } else {
             $data = DB::table('customer_order')
-                  ->rightJoin('users','users.id','=','customer_order.idcustomer')
-                  ->rightJoin('counters', 'counters.id', '=', 'customer_order.idcounter')
+                  ->leftJoin('users','users.id','=','customer_order.idcustomer')
+                  ->leftJoin('counters', 'counters.id', '=', 'customer_order.idcounter')
                   ->join('store_warehouse','store_warehouse.idstore_warehouse','=','customer_order.idstore_warehouse')
                              ->select(
                                 'customer_order.idcustomer_order',
