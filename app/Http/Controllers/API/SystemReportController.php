@@ -534,74 +534,93 @@ class SystemReportController extends Controller
     public function get_cogs_report(Request $request)
     {
         ini_set('max_execution_time', 14000);
-        $limit = !empty($request->rows) ? $request->rows : 50;
-        $skip = !empty($request->first) ? $request->first : 0;
-        $start_date =  !empty($request->start_date) ? $request->start_date : null;
-        $end_date = !empty($request->end_date)? $request->end_date :  null;
-
-
-
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : Carbon::now()->startOfMonth()->format('Y-m-d');;
+        $end_date = !empty($_GET['end_date'])? $request->end_date :  Carbon::now()->format('Y-m-d');
+        
         $data =  DB::table('product_master')
-                ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'product_master.idproduct_master')
+                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master')
                 ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
                 ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
                 ->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category')
                 ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
-                // ->leftJoin
                 ->select(
                     'product_master.idproduct_master',
-                    'product_batch.idstore_warehouse',
-                    'product_master.idcategory',
+                    'inventory.idstore_warehouse',
                     'category.name As category_name',
-                    'product_master.idsub_category',
                     'sub_category.name as sub_category_name',
-                    'product_master.idsub_sub_category',
                     'sub_sub_category.name AS sub_sub_category_name',
-                    'product_master.idbrand',
                     'brands.name As brand_name',
                     'product_master.name',
                     'product_master.barcode',
-                    'product_batch.purchase_price AS purchase_price'        
+                    'inventory.purchase_price AS purchase_price'        
                 );    
-        if(!empty($request->field) && $request->field=="brand"){
-             $data->where('brands.name', 'like', $request->searchTerm . '%');
+        if(!empty($_GET['field']) && $_GET['field']=="brand"){
+             $data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
         }
-         if(!empty($request->field) && $request->field=="category"){
-             $data->where('category.name', 'like', $request->searchTerm . '%');
+         if(!empty($_GET['field']) && $_GET['field']=="category"){
+             $data->where('category.name', 'like', $_GET['searchTerm'] . '%');
         }
-         if(!empty($request->field) && $request->field=="sub_category"){
-             $data->where('sub_category.name', 'like', $request->searchTerm . '%');
+         if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
+             $data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
         }
-         if(!empty($request->field) && $request->field=="barcode"){
-             $barcode=$request->searchTerm;
+         if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+             $barcode=$_GET['searchTerm'];
             $data->where('product_master.barcode', 'like', $barcode . '%');
         }
-        
-        if(!empty($start_date) &&  !empty($end_date)) {
-            $data->whereBetween('product_master.created_at',[$start_date, $end_date]);
+        if(!empty($_GET['idstore_warehouse'])) {
+            $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
         }
-        if(!empty($request->idstore_warehouse)) {
-            $data->where('product_batch.idstore_warehouse', $request->idstore_warehouse);
-        }
-        if(!empty($request->field) && $request->field=="product"){
-            $data->where('product_master.name', 'like', $request->searchTerm . '%');
+        if(!empty($_GET['field']) && $_GET['field']=="product"){
+            $data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
         }
 
-        $totalRecords = $data->get()->count();
+        $totalRecords = $data->count();
         $limit = abs($limit - $skip);
-        $cogs_report = $data->skip($skip)->take($limit)->get(); 
-
-        foreach($cogs_report as $product) {
-            $inventory = $this->get_quantity($product->idproduct_master);
-            $product->total_quantity = 0;
-            $product->cogs = 0;
-            if(!empty($inventory)) {
-                $product->total_quantity = $inventory->total_quantity;
-                $product->cogs = round($inventory->total_quantity * $inventory->purchase_price, 2);   
-            }
+        $cogs_report = $data->skip($skip)->take($limit)->get();
+        
+        foreach($cogs_report as $product){
+            $cogs = $this->get_COGS($start_date, $end_date, $product->idproduct_master, $product->purchase_price, $product->idstore_warehouse);
+            $product->cogs_value = $cogs;
         }
-
+        
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $cogs_report, 'total'=> $totalRecords], 200);
+    }
+
+    public function get_COGS($start_date, $end_date, $product_id, $purchase_price, $idstore_warehouse)
+    {
+        $salse_data = DB::table('order_detail')
+                ->leftJoin('customer_order', 'customer_order.idcustomer_order', '=', 'order_detail.idcustomer_order')
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                ->select('product_master.idproduct_master', DB::raw('sum(order_detail.quantity) as total_quantity'))
+                ->groupBy('product_master.idproduct_master')
+                ->where('product_master.idproduct_master', $product_id)
+                ->whereBetween('customer_order.created_at',[$start_date, $end_date])
+                ->first();
+        
+        $purchase_data = DB::table('vendor_purchases_detail')
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                ->select('product_master.idproduct_master', DB::raw('sum(vendor_purchases_detail.quantity) as total_quantity'))
+                ->groupBy('product_master.idproduct_master')
+                ->where('product_master.idproduct_master', $product_id)
+                ->whereBetween('vendor_purchases_detail.created_at',[$start_date, $end_date])
+                ->first();
+
+        $inventory_data = DB::table('inventory')
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                ->select('product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'))
+                ->groupBy('product_master.idproduct_master', 'inventory.idstore_warehouse', 'inventory.idstore_warehouse')
+                ->where('product_master.idproduct_master', $product_id)
+                ->where('inventory.idstore_warehouse', $idstore_warehouse)
+                ->first();        
+        $sales_record = !empty($salse_data) ?  $salse_data->total_quantity * $purchase_price : 0;
+        $purchase_record = !empty($purchase_data) ?  $purchase_data->total_quantity * $purchase_price : 0;      
+        $inventory = !empty($inventory_data) ?  $inventory_data->total_quantity * $purchase_price : 0;
+
+        $beginning_inventory = abs($purchase_record - $sales_record);
+        $cogs = $beginning_inventory + $purchase_record - $inventory;
+        return abs($cogs);
     }
 
     public function get_quantity($id) 
