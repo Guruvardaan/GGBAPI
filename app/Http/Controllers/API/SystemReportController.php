@@ -5,13 +5,14 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use  Illuminate\Support\Carbon;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class SystemReportController extends Controller
 {
   public function get_performance_report(Request $request)
   {
+
         $get_best_seller = DB::table('vendor_purchases')
                                     ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
                                     ->groupBy('idvendor')
@@ -470,13 +471,11 @@ class SystemReportController extends Controller
        } else {
             $data = DB::table('customer_order')
                   ->leftJoin('users','users.id','=','customer_order.idcustomer')
-                  ->leftJoin('counters', 'counters.id', '=', 'customer_order.idcounter')
                   ->join('store_warehouse','store_warehouse.idstore_warehouse','=','customer_order.idstore_warehouse')
                              ->select(
                                 'customer_order.idcustomer_order',
                                 'store_warehouse.name as store',
                                 'users.name as name',
-                                'counters.name As counter',
                                 'customer_order.pay_mode',
                                 'customer_order.total_quantity',
                                 'customer_order.total_price',
