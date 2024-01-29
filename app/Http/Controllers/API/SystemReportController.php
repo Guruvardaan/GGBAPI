@@ -12,7 +12,7 @@ class SystemReportController extends Controller
 {
   public function get_performance_report(Request $request)
   {
-
+        $products = 
         $get_best_seller = DB::table('vendor_purchases')
                                     ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
                                     ->groupBy('idvendor')
@@ -581,7 +581,9 @@ class SystemReportController extends Controller
         
         foreach($cogs_report as $product){
             $cogs = $this->get_COGS($start_date, $end_date, $product->idproduct_master, $product->purchase_price, $product->idstore_warehouse);
-            $product->cogs_value = $cogs;
+            $product->quantity = $cogs['quantity'];
+            $product->cogs_value = $cogs['cogs'];
+
         }
         
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $cogs_report, 'total'=> $totalRecords], 200);
@@ -619,7 +621,11 @@ class SystemReportController extends Controller
 
         $beginning_inventory = abs($purchase_record - $sales_record);
         $cogs = $beginning_inventory + $purchase_record - $inventory;
-        return abs($cogs);
+        $array = [
+            'cogs' => abs($cogs),
+            'quantity' => !empty($inventory_data) ?  $inventory_data->total_quantity : 0
+        ];
+        return $array;
     }
 
     public function get_quantity($id) 
