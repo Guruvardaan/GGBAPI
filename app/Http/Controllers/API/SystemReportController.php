@@ -12,7 +12,6 @@ class SystemReportController extends Controller
 {
   public function get_performance_report(Request $request)
   {
-        $products = 
         $get_best_seller = DB::table('vendor_purchases')
                                     ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
                                     ->groupBy('idvendor')
