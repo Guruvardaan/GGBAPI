@@ -12,23 +12,33 @@ class SystemReportController extends Controller
 {
   public function get_performance_report(Request $request)
   {
-        $get_best_seller = DB::table('vendor_purchases')
-                                    ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
-                                    ->groupBy('idvendor')
-                                    ->orderBy('total_sales', 'desc')
-                                    ->first();
-        $get_worst_seller = DB::table('vendor_purchases')
-                                    ->select('idvendor', DB::raw('sum(quantity) as total_sales')) 
-                                    ->groupBy('idvendor')
-                                    ->orderBy('total_sales', 'asc')
-                                    ->first();                           
-        $get_year_over_year_growth = $this->get_year_over_year_growth();
-        $data['get_best_seller'] =  $this->get_seller_detail($get_best_seller->idvendor);
-        $data['get_best_seller']->total_sales = $get_best_seller->total_sales;
-        $data['get_worst_seller'] = $this->get_seller_detail($get_worst_seller->idvendor);
-        $data['get_worst_seller']->total_sales = $get_worst_seller->total_sales;
-        $data['get_year_over_year_growth'] = $get_year_over_year_growth;               
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);                                   
+        ini_set('max_execution_time', 14000);
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : Carbon::now()->startOfMonth()->format('Y-m-d');;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  Carbon::now()->format('Y-m-d');
+        $data =  DB::table('product_master')
+                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master')
+                ->select(
+                    'product_master.idproduct_master',
+                    'product_master.name',
+                    'inventory.idstore_warehouse',
+                    'inventory.purchase_price AS purchase_price'        
+                )->get();
+        //
+        foreach($data as $product){
+            $cogs = $this->get_COGS($start_date, $end_date, $product->idproduct_master, $product->purchase_price, $product->idstore_warehouse);
+            $avg_inventory = ($cogs['beginning_inventory'] + $cogs['quantity'])/2; 
+            $cogs_value = $cogs['cogs'];
+            $inventory_turnover_ratio = !empty($avg_inventory) ? $cogs_value/$avg_inventory : 0;
+            $product->cogs = $cogs_value;
+            $product->inventory_turnover_ratio = $inventory_turnover_ratio;
+        }
+        $max_inventory_turnover_ratio = $data->max('inventory_turnover_ratio');
+        $min_inventory_turnover_ratio = $data->min('inventory_turnover_ratio');
+        $top_seller = $data->where('inventory_turnover_ratio', $max_inventory_turnover_ratio)->first();
+        $worst_seller = $data->where('inventory_turnover_ratio', $min_inventory_turnover_ratio)->first();
+        $perfomance_data['top_seller'] = $top_seller;
+        $perfomance_data['worst_seller'] = $worst_seller;
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $perfomance_data], 200);                                   
   }
 
     public function get_year_over_year_growth() 
@@ -535,7 +545,7 @@ class SystemReportController extends Controller
         $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : Carbon::now()->startOfMonth()->format('Y-m-d');;
-        $end_date = !empty($_GET['end_date'])? $request->end_date :  Carbon::now()->format('Y-m-d');
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  Carbon::now()->format('Y-m-d');
         
         $data =  DB::table('product_master')
                 ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master')
@@ -620,10 +630,12 @@ class SystemReportController extends Controller
 
         $beginning_inventory = abs($purchase_record - $sales_record);
         $cogs = $beginning_inventory + $purchase_record - $inventory;
+        $beginning_quantity = (!empty($sales_record) ? $salse_data->total_quantity : 0 ) - (!empty($purchase_data) ? $purchase_data->total_quantity : 0 );
         $array = [
             'cogs' => abs($cogs),
-            'quantity' => !empty($inventory_data) ?  $inventory_data->total_quantity : 0
-        ];
+            'quantity' => !empty($inventory_data) ?  $inventory_data->total_quantity : 0,
+            'beginning_inventory' => abs($beginning_quantity),
+        ];    
         return $array;
     }
 
