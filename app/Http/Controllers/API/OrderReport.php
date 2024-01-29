@@ -87,6 +87,10 @@ class OrderReport extends Controller
                     $data->where('store_warehouse.name', 'like', $_GET['searchTerm'] . '%');
                 }
 
+                if(!empty($_GET['idstore_warehouse'])) {
+                    $data->where('customer_order.idstore_warehouse', $request->idstore_warehouse);
+                }
+
                 $totalRecords = $data->count();
                 $limit = abs($limit - $skip);
                 $orderList = $data->skip($skip)->take($limit)->get();
@@ -123,9 +127,8 @@ class OrderReport extends Controller
                     $gross_price = $gross_price + $gr_mrp;
                 }             
                 $gross_profit_pr = !empty($gross_profit_rs) ? ($gross_profit_rs/$gross_price) * 100 : 0;
-                $orderList['gross_profit_rs'] = round($gross_profit_rs, 2);
-                $orderList['gross_profit_pr'] = round($gross_profit_pr, 2);
-                return response()->json(['orders_list' => $orderList, 'total' => $totalRecords]);
+ 
+                return response()->json(['orders_list' => $orderList, 'gross_profit_rs' => round($gross_profit_rs, 2), 'gross_profit_pr' => round($gross_profit_pr, 2), 'total' => $totalRecords]);
             } catch (\Exception $e) {
                 return response()->json(['error' => 'Failed to order data', 'details' => $e->getMessage()], 500);
             }
