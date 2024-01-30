@@ -55,7 +55,6 @@ class OrderReport extends Controller
             try {
                 $data = DB::table('customer_order')
                              ->leftJoin('users', 'users.id', 'customer_order.idcustomer')
-                             ->leftJoin('counters', 'counters.id', 'customer_order.idcounter')
                              ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', 'customer_order.idstore_warehouse')
                              ->select(
                                 'customer_order.idcustomer_order',
