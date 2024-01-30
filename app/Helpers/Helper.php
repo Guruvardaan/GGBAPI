@@ -352,7 +352,7 @@ class Helper
         return $data;
     }
     
-    public static function get_b2c_invoice($year, $month, $start_date, $end_date)
+    public static function get_b2c_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null)
     {
         $B2C_invoice_data = DB::table('customer_order')
                                    ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer') 
@@ -364,7 +364,15 @@ class Helper
             $B2C_invoice_data->whereYear('customer_order.created_at', $year);
             $B2C_invoice_data->whereMonth('customer_order.created_at', $month);
         } 
-        $B2C_invoice = $B2C_invoice_data->get();                        
+        if(!empty($limit)) {
+            $skip = !empty($skip) ? $skip : 0;
+            $limit = abs($limit - $skip);
+            $B2C_invoice = $B2C_invoice_data->skip($skip)->take($limit)->get();
+        } else {
+            $B2C_invoice = $B2C_invoice_data->get();
+        }                        
+
+        $totalRecords = $B2C_invoice_data->count();
 
         $total_quantity = 0.00;
         $total_amount = 0.00;
@@ -432,6 +440,7 @@ class Helper
 
         $data['b2c_large_invoice'] = $b2c_large_invoice;
         $data['b2c_small_invoice'] = $b2c_small_invoice;
+        $data['total'] = $totalRecords;
         return $data;
     }
 
@@ -447,19 +456,30 @@ class Helper
         return $order_detail;                 
     }
 
-    public static function get_nil_reted_invoice($year, $month, $start_date, $end_date)
+    public static function get_nil_reted_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null)
     {
         $nil_reted_data = DB::table('customer_order')
-                                   ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer') 
-                                   ->select('users.name as desc', 'customer_order.created_at as invoice_date', 'customer_order.idcustomer_order as invoice_no', 'customer_order.total_price as invoice_value');
-        // $h = 1;
+                                   ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer')
+                                   ->leftJoin('order_detail', 'order_detail.idcustomer_order', '=', 'customer_order.idcustomer_order') 
+                                   ->select('users.name as desc', 'customer_order.created_at as invoice_date', 'customer_order.idcustomer_order as invoice_no', 'customer_order.total_price as invoice_value')
+                                   ->where('order_detail.total_sgst', '=', 0)
+                                   ->where('order_detail.total_cgst', '=', 0);
         if(!empty($start_date) &&  !empty($end_date)) {
             $nil_reted_data->whereBetween('customer_order.created_at',[$start_date, $end_date]);
         } else {
             $nil_reted_data->whereYear('customer_order.created_at', $year);
             $nil_reted_data->whereMonth('customer_order.created_at', $month);
         } 
-        $nil_reted = $nil_reted_data->get();                           
+        $nil_reted = $nil_reted_data->get();
+        $totalRecords = $nil_reted_data->get()->count();
+
+        if(!empty($limit)) {
+            $skip = !empty($skip) ? $skip : 0;
+            $limit = abs($limit - $skip);
+            $nil_reted = $nil_reted_data->skip($skip)->take($limit)->get();
+        } else {
+            $nil_reted = $nil_reted_data->get();
+        } 
 
         $total_quantity = 0.00;
         $total_amount = 0.00;
@@ -525,6 +545,7 @@ class Helper
         if(!empty($nil_reted_data)) {
             $nil_reted_data['total'] = $total;
         }
+        $nil_reted_data['records'] = $totalRecords;
         return $nil_reted_data;
     }
 
