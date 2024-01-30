@@ -10,8 +10,8 @@ use Illuminate\Support\Collection;
 
 class SystemReportController extends Controller
 {
-  public function get_performance_report(Request $request)
-  {
+    public function get_performance_report(Request $request)
+    {
         ini_set('max_execution_time', 14000);
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : Carbon::now()->startOfMonth()->format('Y-m-d');;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  Carbon::now()->format('Y-m-d');
@@ -45,7 +45,7 @@ class SystemReportController extends Controller
         $perfomance_data['top_seller'] = $top_seller;
         $perfomance_data['worst_seller'] = $worst_seller;
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $perfomance_data], 200);                                   
-  }
+    }
 
     public function get_year_over_year_growth() 
     {
@@ -81,7 +81,7 @@ class SystemReportController extends Controller
          if(!empty($_GET['field']) && $_GET['field']=="category"){
              $data->where('category.name', 'like', $_GET['searchTerm'] . '%');
         }
-         if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
+        if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
              $data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
         }
          if(!empty($_GET['field']) && $_GET['field']=="barcode"){
@@ -172,16 +172,15 @@ class SystemReportController extends Controller
 
     public function get_value_report(Request $request)
     {
-        ini_set('max_execution_time', 14000);
-        $start_date =  !empty($request->start_date) ? $request->start_date : null;
-        $end_date = !empty($request->end_date)? $request->end_date :  null;
-        $limit = !empty($request->limit) ? $request->limit : 25;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 10;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
 
         $data = DB::table('inventory')
-                            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
-                            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
-                            ->select('inventory.idproduct_master','inventory.idstore_warehouse' ,'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
-                            ->groupBy('inventory.idproduct_master','inventory.idstore_warehouse' ,'product_master.name', 'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at');
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
+                ->select('inventory.idproduct_master','inventory.idstore_warehouse' ,'product_master.name', 'product_master.barcode',  'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', 'inventory.quantity As total_quantity');
         if(!empty($request->idstore_warehouse)) {
             $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
         } 
@@ -190,8 +189,25 @@ class SystemReportController extends Controller
             $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
 
-        $value_report_data = $data->paginate($limit)->toArray();                   
-        $value_report_data = $this->data_formatting($value_report_data);        
+        if(!empty($_GET['field']) && $_GET['field']=="product"){
+            $data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+        }
+
+        if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+            $barcode=$_GET['searchTerm'];
+           $data->where('product_master.barcode', 'like', $barcode . '%');
+        }
+
+        $totalRecords = 0;
+        $limit = abs($limit - $skip);
+        $value_report_data =  $data->skip($skip)->take($limit)->get();
+        foreach($value_report_data as $item) {
+            $snapshot_value = round($item->total_quantity * $item->purchase_price, 2);
+            $item->snapshot_value = !empty($snapshot_value) ? $snapshot_value : 0;
+            $performance_report['value'] = $item->purchase_price;
+            $performance_report['turnover_ratio'] = round($item->total_quantity > 0 ? $item->purchase_price / $item->total_quantity : 0, 2);
+            $item->performance_report = $performance_report;
+        }     
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $value_report_data], 200);                    
     }
 
@@ -324,8 +340,8 @@ class SystemReportController extends Controller
 
     public function inventory_forecasting_report(Request $request)
     {
-        $start_date =  !empty($request->start_date) ? $request->start_date : null;
-        $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
         $limit = !empty($_GET['rows']) ? $_GET['rows'] : 10;
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
 
@@ -789,6 +805,11 @@ class SystemReportController extends Controller
         }     
         if(!empty($_GET['idstore_warehouse'])) {
             $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+        }
+
+        if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+            $barcode=$_GET['searchTerm'];
+           $data->where('product_master.barcode', 'like', $barcode . '%');
         }
 
         $totalRecords = $data->paginate(20)->total();
