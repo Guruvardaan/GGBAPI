@@ -38,11 +38,10 @@ class SystemReportController extends Controller
             $product->cogs = $cogs_value;
             $product->inventory_turnover_ratio = $inventory_turnover_ratio;
         }
-        dd($product_data);
-        $max_inventory_turnover_ratio = $data->max('inventory_turnover_ratio');
-        $min_inventory_turnover_ratio = $data->min('inventory_turnover_ratio');
-        $top_seller = $data->where('inventory_turnover_ratio', $max_inventory_turnover_ratio)->first();
-        $worst_seller = $data->where('inventory_turnover_ratio', $min_inventory_turnover_ratio)->first();
+        $max_inventory_turnover_ratio = $product_data->max('inventory_turnover_ratio');
+        $min_inventory_turnover_ratio = $product_data->min('inventory_turnover_ratio');
+        $top_seller = $product_data->where('inventory_turnover_ratio', $max_inventory_turnover_ratio)->first();
+        $worst_seller = $product_data->where('inventory_turnover_ratio', $min_inventory_turnover_ratio)->first();
         $perfomance_data['top_seller'] = $top_seller;
         $perfomance_data['worst_seller'] = $worst_seller;
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $perfomance_data], 200);                                   
