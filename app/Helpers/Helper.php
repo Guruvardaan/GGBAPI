@@ -577,19 +577,23 @@ class Helper
         return $nil_reted_data;
     }
 
-    public static function get_order_detail_nil_reted($id)
+    public static function get_order_detail_nil_reted($id, $find_hsn)
     {
-        $order_detail = DB::table('order_detail')
+        $data = DB::table('order_detail')
                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
                         ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'order_detail.total_sgst as SGST', 'order_detail.total_cgst as CGST')
                         ->where('order_detail.idcustomer_order', $id)
                         ->where('total_sgst', '=', 0)
-                        ->where('total_cgst', '=', 0)
-                        ->get();
+                        ->where('total_cgst', '=', 0);
+        //
+        if(!empty($find_hsn)){
+            $data->where('product_master.hsn', 'like', $find_hsn . '%');
+        }     
+        $order_detail = $data->get();                 
         return $order_detail;                
     }
 
-    public static function get_b2b_purchase_invoice($year, $month, $start_date, $end_date)
+    public static function get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $b2b_invoices_data = DB::table('vendor_purchases')
                         ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
@@ -600,8 +604,27 @@ class Helper
         } else {
             $b2b_invoices_data->whereYear('vendor_purchases.created_at', $year);
             $b2b_invoices_data->whereMonth('vendor_purchases.created_at', $month);
+        }
+        
+        if(!empty($field) && $field =="invoice_no"){
+            $b2b_invoices_data->where('vendor_purchases.bill_number', $searchTerm);
+        }
+
+        if(!empty($field) && $field=="vendor_name"){
+            $b2b_invoices_data->where('vendor.name', 'like', $searchTerm . '%');
+        }
+        $find_hsn = null;
+        if(!empty($field) && $field=="hsn"){
+            $find_hsn = $searchTerm;
+        }
+
+        if(!empty($limit)) {
+            $skip = !empty($skip) ? $skip : 0;
+            $limit = abs($limit - $skip);
+            $b2b_invoices = $b2b_invoices_data->skip($skip)->take($limit)->get();
+        } else {
+            $b2b_invoices = $b2b_invoices_data->get();
         } 
-        $b2b_invoices = $b2b_invoices_data->get();
 
         $total_quantity = 0.00;
         $total_amount = 0.00;
@@ -616,7 +639,7 @@ class Helper
             $date = Carbon::parse($order->invoice_date);
             $order->invoice_date = $date->format('d-M-y');
             $order->desc = !empty($order->desc) ? $order->desc : 'Cash Sales and Purchase';
-            $products = self::get_order_detail_b2b_invoice($order->idvendor_purchases);
+            $products = self::get_order_detail_b2b_invoice($order->idvendor_purchases, $find_hsn);
             $product_data = [];
             $invoce_value = 0;
             foreach($products as $key => $product){
@@ -669,31 +692,56 @@ class Helper
         return $b2b_invoices;
     }
 
-    public static function get_order_detail_b2b_invoice($id)
+    public static function get_order_detail_b2b_invoice($id, $find_hsn = null)
     {
-        $order_detail = DB::table('vendor_purchases_detail')
+        $data = DB::table('vendor_purchases_detail')
                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
                         ->select('vendor_purchases_detail.hsn as HSN_code', 'vendor_purchases_detail.quantity', 'vendor_purchases_detail.unit_purchase_price as taxable_amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
                         ->where('vendor_purchases_detail.idvendor_purchases', $id)
                         ->where('product_master.sgst', '<>', 0)
-                        ->where('product_master.cgst', '<>', 0)
-                        ->get();
+                        ->where('product_master.cgst', '<>', 0);
+        //
+        if(!empty($find_hsn)){
+            $data->where('vendor_purchases_detail.hsn', 'like', $find_hsn . '%');
+        }     
+        $order_detail = $data->get();            
         return $order_detail;                 
     }
 
-    public static function get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date)
+    public static function get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $b2b_nil_reted_invoices_data = DB::table('vendor_purchases')
+                        ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', 'vendor_purchases.idvendor_purchases')
+                        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
                         ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
-                        ->select('vendor.name as desc', 'vendor_purchases.created_at as invoice_date', 'vendor_purchases.bill_number as invoice_no', 'vendor.gst as gstin', 'vendor_purchases.idvendor_purchases');
-
+                        ->select('vendor.name as desc', 'vendor_purchases.created_at as invoice_date', 'vendor_purchases.bill_number as invoice_no', 'vendor.gst as gstin', 'vendor_purchases.idvendor_purchases')
+                        ->where('product_master.sgst', 0)
+                        ->where('product_master.cgst', 0);
         if(!empty($start_date) &&  !empty($end_date)) {
             $b2b_nil_reted_invoices_data->whereBetween('vendor_purchases.created_at',[$start_date, $end_date]);
         } else {
             $b2b_nil_reted_invoices_data->whereYear('vendor_purchases.created_at', $year);
             $b2b_nil_reted_invoices_data->whereMonth('vendor_purchases.created_at', $month);
         } 
-        $b2b_nil_reted_invoices = $b2b_nil_reted_invoices_data->get();
+        if(!empty($field) && $field =="invoice_no"){
+            $b2b_nil_reted_invoices_data->where('vendor_purchases.bill_number', $searchTerm);
+        }
+
+        if(!empty($field) && $field=="vendor_name"){
+            $b2b_nil_reted_invoices_data->where('vendor.name', 'like', $searchTerm . '%');
+        }
+        $find_hsn = null;
+        if(!empty($field) && $field=="hsn"){
+            $find_hsn = $searchTerm;
+        }
+
+        if(!empty($limit)) {
+            $skip = !empty($skip) ? $skip : 0;
+            $limit = abs($limit - $skip);
+            $b2b_nil_reted_invoices = $b2b_nil_reted_invoices_data->skip($skip)->take($limit)->get();
+        } else {
+            $b2b_nil_reted_invoices = $b2b_nil_reted_invoices_data->get();
+        }
 
         $total_quantity = 0.00;
         $total_amount = 0.00;
@@ -708,7 +756,7 @@ class Helper
             $date = Carbon::parse($order->invoice_date);
             $order->invoice_date = $date->format('d-M-y');
             $order->desc = !empty($order->desc) ? $order->desc : 'Cash Sales and Purchase';
-            $products = self::get_order_detail_b2b_nil_reted_invoice($order->idvendor_purchases);
+            $products = self::get_order_detail_b2b_nil_reted_invoice($order->idvendor_purchases, $find_hsn);
             $product_data = [];
             $invoce_value = 0;
             foreach($products as $key => $product){
@@ -754,6 +802,10 @@ class Helper
             'total_gst' => round($total_gst, 2),
         ];
 
+        if(!empty($b2b_nil_reted_invoices->toArray())) {
+            $b2b_nil_reted_invoices['total'] = $total;
+        }
+
         $b2b_nil_reted_invoices_data = [];
         foreach($b2b_nil_reted_invoices as $order)
         {
@@ -776,11 +828,10 @@ class Helper
                         ->select('vendor_purchases_detail.hsn as HSN_code', 'vendor_purchases_detail.quantity', 'vendor_purchases_detail.unit_purchase_price as taxable_amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
                         ->where('vendor_purchases_detail.idvendor_purchases', $id)
                         ->where('product_master.sgst', 0)
-                        ->where('product_master.cgst', 0)
-                        ->get();
+                        ->where('product_master.cgst', 0);
         //
         if(!empty($find_hsn)){
-            $data->where('product_master.hsn', 'like', $find_hsn . '%');
+            $data->where('vendor_purchases_detail.hsn', 'like', $find_hsn . '%');
         }     
         $order_detail = $data->get(); 
 
