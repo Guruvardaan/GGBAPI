@@ -43,18 +43,67 @@ class SystemReportController extends Controller
 
     public function get_year_over_year_growth() 
     {
-        $get_current_year_data = DB::table('vendor_purchases_detail')
-                    ->select(DB::raw('sum(quantity) as total_sales'))
-                    ->whereYear('created_at', date('Y'))
-                    ->get()[0];
-        $get_previous_year_data = DB::table('vendor_purchases_detail')
-                    ->select(DB::raw('sum(quantity) as total_sales'))
-                    ->whereYear('created_at',  date('Y')-1)
-                    ->get()[0];                     
-        $total_salled_quantity = (!empty($get_current_year_data->total_sales) ? $get_current_year_data->total_sales : 0) - (!empty($get_previous_year_data->total_sales) ? $get_previous_year_data->total_sales : 0);      
-        $year_over_year_growth['percentage'] = !empty($get_previous_year_data->total_sales) ? $total_salled_quantity/($get_previous_year_data->total_sales * 100) : 100;
-        $year_over_year_growth['total_salled_quantity'] = $total_salled_quantity;
-        return $year_over_year_growth;            
+        ini_set('max_execution_time', 14000);
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
+        $year = !empty($_GET['year']) ? $_GET['year'] : date('Y'); 
+        $start_date = $year . '-01-01';
+        $end_date = (date('Y') === $year) ?  Carbon::now()->format('Y-m-d') : $year . '-12-31';
+        $diff = strtotime($end_date) - strtotime($start_date);
+        $days = abs(round($diff / 86400));
+
+        $data =  DB::table('product_master')
+                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master')
+                ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                ->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category')
+                ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                ->select(
+                    'product_master.idproduct_master',
+                    'inventory.idstore_warehouse',
+                    'category.name As category_name',
+                    'sub_category.name as sub_category_name',
+                    'sub_sub_category.name AS sub_sub_category_name',
+                    'brands.name As brand_name',
+                    'product_master.name',
+                    'product_master.barcode',
+                    'inventory.purchase_price AS purchase_price'        
+                );    
+        if(!empty($_GET['field']) && $_GET['field']=="brand"){
+             $data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
+        }
+         if(!empty($_GET['field']) && $_GET['field']=="category"){
+             $data->where('category.name', 'like', $_GET['searchTerm'] . '%');
+        }
+         if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
+             $data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
+        }
+         if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+             $barcode=$_GET['searchTerm'];
+            $data->where('product_master.barcode', 'like', $barcode . '%');
+        }
+        if(!empty($_GET['idstore_warehouse'])) {
+            $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+        }
+        if(!empty($_GET['field']) && $_GET['field']=="product"){
+            $data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+        }
+
+        $totalRecords = $data->count();
+        $limit = abs($limit - $skip);
+        $get_year_over_year_data = $data->skip($skip)->take($limit)->get();
+        
+        foreach($get_year_over_year_data as $product){
+            $cogs = $this->get_COGS($start_date, $end_date, $product->idproduct_master, $product->purchase_price, $product->idstore_warehouse);
+            $avg_inventory = ($cogs['beginning_inventory'] + $cogs['quantity'])/2; 
+            $cogs_value = $cogs['cogs'];
+            $inventory_turnover_ratio = !empty($avg_inventory) ? $cogs_value/$avg_inventory : 0;
+            $growth = (!empty($inventory_turnover_ratio)) ? $days/$inventory_turnover_ratio : 0;
+            $product->growth = round($growth, 2);
+        }
+        
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $get_year_over_year_data, 'total'=> $totalRecords], 200);
+      
     }
 
     public function get_seller_detail($id) 

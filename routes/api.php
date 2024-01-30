@@ -15,6 +15,7 @@ use App\Http\Controllers\API\GstReportController;
 use App\Http\Controllers\API\ExcelController;
 use App\Http\Controllers\API\PurchaseOrderController;
 use App\Http\Controllers\API\GRNReportController;
+use App\Http\Controllers\API\OrderReport;
 
 
 /*
@@ -98,3 +99,8 @@ Route::post('add-order', [GRNReportController::class, 'add_order']);
 Route::post('edit-order/{id}', [GRNReportController::class, 'edit_order']);
 Route::get('grn-report', [GRNReportController::class, 'get_grn_puchase_order']);
 Route::get('confirm-grn-report/{id}', [GRNReportController::class, 'confirm_grn']);
+
+Route::post('get-order', [OrderReport::class, 'getOrder']);
+
+//year_over_year_growth perfomance
+Route::get('year-over-year-growth', [SystemReportController::class, 'get_year_over_year_growth']);
