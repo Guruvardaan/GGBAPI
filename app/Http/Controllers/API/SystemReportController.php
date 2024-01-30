@@ -22,16 +22,23 @@ class SystemReportController extends Controller
                     'product_master.name',
                     'inventory.idstore_warehouse',
                     'inventory.purchase_price AS purchase_price'        
-                )->get();
-        //
-        foreach($data as $product){
-            $cogs = $this->get_COGS($start_date, $end_date, $product->idproduct_master, $product->purchase_price, $product->idstore_warehouse);
+                );
+
+        if(!empty($_GET['idstore_warehouse'])) {
+            $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+        }        
+
+        $product_data = $data->get();
+
+        foreach($product_data as $product){
+            $cogs = $this->get_COGS($start_date, $end_date, $product->idproduct_master, $product->purchase_price, !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : $product->idstore_warehouse);
             $avg_inventory = ($cogs['beginning_inventory'] + $cogs['quantity'])/2; 
             $cogs_value = $cogs['cogs'];
             $inventory_turnover_ratio = !empty($avg_inventory) ? $cogs_value/$avg_inventory : 0;
             $product->cogs = $cogs_value;
             $product->inventory_turnover_ratio = $inventory_turnover_ratio;
         }
+        dd($product_data);
         $max_inventory_turnover_ratio = $data->max('inventory_turnover_ratio');
         $min_inventory_turnover_ratio = $data->min('inventory_turnover_ratio');
         $top_seller = $data->where('inventory_turnover_ratio', $max_inventory_turnover_ratio)->first();
@@ -320,24 +327,50 @@ class SystemReportController extends Controller
     {
         $start_date =  !empty($request->start_date) ? $request->start_date : null;
         $end_date = !empty($request->end_date)? $request->end_date :  null;
-        $limit = !empty($request->limit) ? $request->limit : 25;
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 10;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
 
         $data = DB::table('inventory')
                     ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
-                    ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'inventory.created_at As Date', DB::raw('sum(inventory.quantity) as selled_quantity'))
-                    ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'inventory.created_at');
+                    ->leftJoin('order_detail', 'order_detail.idproduct_master', '=', 'inventory.idproduct_master')
+                    ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                    ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                    ->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category')
+                    ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                    ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'category.name As category_name', 'sub_category.name as sub_category_name', 'sub_sub_category.name AS sub_sub_category_name', 'brands.name As brand_name', 'inventory.created_at As Date', DB::raw('sum(inventory.quantity) as remaining_quantity'), DB::raw('sum(order_detail.quantity) as selled_quantity'))
+                    ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', 'inventory.created_at','category.name', 'sub_category.name', 'sub_sub_category.name', 'brands.name');
 
         if(!empty($start_date) && !empty($end_date)) {
             $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }         
         if(!empty($request->idstore_warehouse)) {
             $data->where('idstore_warehouse', $request->idstore_warehouse);
-        }                       
+        }
         
-        $inventory_forecasting_report = $data->paginate($limit)->toArray();
-        $inventory_forecasting_report = $this->forecasting_data_formatting($inventory_forecasting_report);
+        if(!empty($_GET['field']) && $_GET['field']=="product"){
+            $data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+        }
 
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventory_forecasting_report], 200);                                
+        if(!empty($_GET['field']) && $_GET['field']=="brand"){
+            $data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
+       }
+        if(!empty($_GET['field']) && $_GET['field']=="category"){
+            $data->where('category.name', 'like', $_GET['searchTerm'] . '%');
+       }
+        if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
+            $data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
+       }
+       if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+            $barcode=$_GET['searchTerm'];
+           $data->where('product_master.barcode', 'like', $barcode . '%');
+       }
+       
+
+        $totalRecords = $data->get()->count();
+        $limit = abs($limit - $skip);
+        $inventory_forecasting_report =  $data->skip($skip)->take($limit)->get();
+
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $inventory_forecasting_report, 'total' => $totalRecords], 200);                                
     }              
     
     public function forecasting_data_formatting($data)
@@ -622,7 +655,7 @@ class SystemReportController extends Controller
          if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
              $data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
         }
-         if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+        if(!empty($_GET['field']) && $_GET['field']=="barcode"){
              $barcode=$_GET['searchTerm'];
             $data->where('product_master.barcode', 'like', $barcode . '%');
         }
