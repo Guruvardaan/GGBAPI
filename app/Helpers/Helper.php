@@ -352,7 +352,7 @@ class Helper
         return $data;
     }
     
-    public static function get_b2c_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null)
+    public static function get_b2c_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $B2C_invoice_data = DB::table('customer_order')
                                    ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer') 
@@ -364,6 +364,19 @@ class Helper
             $B2C_invoice_data->whereYear('customer_order.created_at', $year);
             $B2C_invoice_data->whereMonth('customer_order.created_at', $month);
         } 
+
+        if(!empty($field) && $field =="invoice_no"){
+            $B2C_invoice_data->where('customer_order.idcustomer_order', $searchTerm);
+        }
+
+        if(!empty($field) && $field=="customer_name"){
+            $B2C_invoice_data->where('users.name', 'like', $searchTerm . '%');
+        }
+        $find_hsn = null;
+        if(!empty($field) && $field=="hsn"){
+            $find_hsn = $searchTerm;
+        }
+
         if(!empty($limit)) {
             $skip = !empty($skip) ? $skip : 0;
             $limit = abs($limit - $skip);
@@ -390,7 +403,7 @@ class Helper
             $order->local_or_central = 'Local';
             $order->invoice_type = 'Inventory';
             $order->GSTIN = '';
-            $products = self::get_order_detail_b2c_invoice($order->invoice_no);
+            $products = self::get_order_detail_b2c_invoice($order->invoice_no, $find_hsn);
             $product_data = [];
             foreach($products as $key => $product){
                 $product_data[$key]['HSN_code'] = $product->HSN_code;
@@ -444,19 +457,23 @@ class Helper
         return $data;
     }
 
-    public static function get_order_detail_b2c_invoice($id)
+    public static function get_order_detail_b2c_invoice($id, $find_hsn = null)
     {
-        $order_detail = DB::table('order_detail')
+        $data = DB::table('order_detail')
                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
                         ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'order_detail.total_sgst as SGST', 'order_detail.total_cgst as CGST')
                         ->where('order_detail.idcustomer_order', $id)
                         ->where('total_sgst', '<>', 0)
-                        ->where('total_cgst', '<>', 0)
-                        ->get();
+                        ->where('total_cgst', '<>', 0);
+        //
+        if(!empty($find_hsn)){
+            $data->where('product_master.hsn', 'like', $find_hsn . '%');
+        }     
+        $order_detail = $data->get();           
         return $order_detail;                 
     }
 
-    public static function get_nil_reted_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null)
+    public static function get_nil_reted_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $nil_reted_data = DB::table('customer_order')
                                    ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer')
@@ -470,6 +487,17 @@ class Helper
             $nil_reted_data->whereYear('customer_order.created_at', $year);
             $nil_reted_data->whereMonth('customer_order.created_at', $month);
         } 
+        if(!empty($field) && $field =="invoice_no"){
+            $nil_reted_data->where('customer_order.idcustomer_order', $searchTerm);
+        }
+
+        if(!empty($field) && $field=="customer_name"){
+            $nil_reted_data->where('users.name', 'like', $searchTerm . '%');
+        }
+        $find_hsn = null;
+        if(!empty($field) && $field=="hsn"){
+            $find_hsn = $searchTerm;
+        }
         $nil_reted = $nil_reted_data->get();
         $totalRecords = $nil_reted_data->get()->count();
 
@@ -497,7 +525,7 @@ class Helper
             $order->local_or_central = 'Local';
             $order->invoice_type = 'Inventory';
             $order->GSTIN = '';
-            $products = self::get_order_detail_nil_reted($order->invoice_no);
+            $products = self::get_order_detail_nil_reted($order->invoice_no, $find_hsn);
             $product_data = [];
             foreach($products as $key => $product){
                 $product_data[$key]['HSN_code'] = $product->HSN_code;
@@ -741,15 +769,21 @@ class Helper
         return $b2b_nil_reted_invoices_data;
     }
 
-    public static function get_order_detail_b2b_nil_reted_invoice($id)
+    public static function get_order_detail_b2b_nil_reted_invoice($id, $find_hsn = null)
     {
-        $order_detail = DB::table('vendor_purchases_detail')
+        $data = DB::table('vendor_purchases_detail')
                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
                         ->select('vendor_purchases_detail.hsn as HSN_code', 'vendor_purchases_detail.quantity', 'vendor_purchases_detail.unit_purchase_price as taxable_amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
                         ->where('vendor_purchases_detail.idvendor_purchases', $id)
                         ->where('product_master.sgst', 0)
                         ->where('product_master.cgst', 0)
                         ->get();
+        //
+        if(!empty($find_hsn)){
+            $data->where('product_master.hsn', 'like', $find_hsn . '%');
+        }     
+        $order_detail = $data->get(); 
+
         return $order_detail;                 
     }
 

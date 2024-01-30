@@ -48,6 +48,8 @@ class GstReportController extends Controller
         $type = !empty($_GET['type']) ? $_GET['type'] : 'default';
         $limit = !empty($_GET['rows']) ? $_GET['rows'] : 10;
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
+        $field = !empty($_GET['field']) ? $_GET['field'] : null;
+        $searchTerm = !empty($_GET['searchTerm']) ? $_GET['searchTerm'] : null;
         $link = '';
         
         if($type === 'default') {
@@ -106,17 +108,17 @@ class GstReportController extends Controller
             $link = $url;
         } 
         if ($type === "b2c_small_invoice") {
-            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $limit, $skip);
+            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
             $data = $b2c_invoice['b2c_small_invoice'];
             $total = !empty($b2c_invoice['b2c_small_invoice']) ? $b2c_invoice['total'] : 0;;
         }
         if ($type === "b2c_large_invoice") {
-            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $limit, $skip);
+            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
             $data = $b2c_invoice['b2c_large_invoice'];
             $total = !empty($b2c_invoice['b2c_large_invoice']) ? $b2c_invoice['total'] : 0;
         }
         if ($type === "nil_reted") {
-            $nil_reted = Helper::get_nil_reted_invoice($year, $month, $start_date, $end_date, $limit, $skip);
+            $nil_reted = Helper::get_nil_reted_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
             $data = $nil_reted;
             $total = $nil_reted['records'];
         }
