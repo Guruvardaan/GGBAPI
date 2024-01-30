@@ -781,8 +781,8 @@ class SystemReportController extends Controller
                     'product_master.cgst',
                     'product_master.sgst',
                     'product_master.igst',
-                    'inventory.purchase_price',
-                    DB::Raw('inventory.purchase_price * vendor_purchases_detail.quantity As amount')
+                    'vendor_purchases_detail.unit_purchase_price as purchase_price',
+                    DB::Raw('vendor_purchases_detail.unit_purchase_price * vendor_purchases_detail.quantity As amount')
                 );
 
         if(!empty($_GET['field']) && $_GET['field']=="product"){
