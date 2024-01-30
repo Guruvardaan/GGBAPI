@@ -20,6 +20,7 @@ class SystemReportController extends Controller
                 ->select(
                     'product_master.idproduct_master',
                     'product_master.name',
+                    'product_master.barcode',
                     'inventory.idstore_warehouse',
                     'inventory.purchase_price AS purchase_price'        
                 );
@@ -38,6 +39,7 @@ class SystemReportController extends Controller
             $product->cogs = $cogs_value;
             $product->inventory_turnover_ratio = $inventory_turnover_ratio;
         }
+
         $max_inventory_turnover_ratio = $product_data->max('inventory_turnover_ratio');
         $min_inventory_turnover_ratio = $product_data->min('inventory_turnover_ratio');
         $top_seller = $product_data->where('inventory_turnover_ratio', $max_inventory_turnover_ratio)->first();
@@ -198,7 +200,7 @@ class SystemReportController extends Controller
            $data->where('product_master.barcode', 'like', $barcode . '%');
         }
 
-        $totalRecords = 0;
+        $totalRecords = $data->paginate(20)->total();
         $limit = abs($limit - $skip);
         $value_report_data =  $data->skip($skip)->take($limit)->get();
         foreach($value_report_data as $item) {
@@ -208,7 +210,7 @@ class SystemReportController extends Controller
             $performance_report['turnover_ratio'] = round($item->total_quantity > 0 ? $item->purchase_price / $item->total_quantity : 0, 2);
             $item->performance_report = $performance_report;
         }     
-        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $value_report_data], 200);                    
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $value_report_data, 'total' => $totalRecords], 200);                    
     }
 
     public function data_formatting($data)
@@ -279,16 +281,17 @@ class SystemReportController extends Controller
     public function get_stock_levels_report(Request $request)
     {
         ini_set('max_execution_time', 14000);
-        $start_date =  !empty($request->start_date) ? $request->start_date : null;
-        $end_date = !empty($request->end_date)? $request->end_date :  null;
-        $limit = !empty($request->rows) ? $request->rows : 20;
-        $skip = !empty($request->first) ? $request->first : 0;
+        $start_date =  !empty($_GST['start_date']) ? $_GST['start_date'] : null;
+        $end_date = !empty($_GST['end_date'])? $_GST['end_date'] :  null;
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 20;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
+        $type = !empty($_GET['type']) ? $_GET['type']  : 'critical_products';
 
         try {
             $data = DB::table('inventory')
                            ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
-                           ->select('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
-                           ->groupBy('inventory.idproduct_master', 'product_master.name', 'inventory.idstore_warehouse');
+                           ->select('inventory.idproduct_master', 'product_master.name', 'product_master.barcode', 'inventory.idstore_warehouse', DB::raw('sum(inventory.quantity)/2 as total_quantity'))
+                           ->groupBy('inventory.idproduct_master', 'product_master.name', 'product_master.barcode', 'inventory.idstore_warehouse');
                                     
             if(!empty($request->idstore_warehouse)) {
                 $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
@@ -297,9 +300,18 @@ class SystemReportController extends Controller
             if(!empty($start_date) &&  !empty($end_date)) {
                 $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
             }
+
+            if(!empty($_GET['field']) && $_GET['field']=="product"){
+                $data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+            }
+
+            if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+                $barcode=$_GET['searchTerm'];
+               $data->where('product_master.barcode', 'like', $barcode . '%');
+            }
         
             $total = $data->paginate(20)->total();
-            $stock_levels_report_data = $data->skip($skip)->take($limit)->get();
+            $stock_levels_report_data = $data->get();
             $productIds = $stock_levels_report_data->pluck('idproduct_master')->unique()->toArray();
             $selled_products = $this->get_selled_quantity($productIds);
 
@@ -316,8 +328,13 @@ class SystemReportController extends Controller
             
         
             $data = [];
-            $data['critical_products'] = $stock_levels_report_data->whereBetween('remaining_product',[1,10]);
-            $data['replenishment_products'] = array_values($stock_levels_report_data->where('remaining_product', 0)->toArray());
+            if($type === 'critical_products') {
+                $data = $stock_levels_report_data->whereBetween('remaining_product',[1,10])->skip($skip)->take($limit);
+            }
+
+            if($type === 'replenishment_products') {
+                $data = $stock_levels_report_data->where('remaining_product', 0)->skip($skip)->take($limit);
+            }
             return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $total], 200);                            
         
         } catch (QueryException $e) {
@@ -708,8 +725,8 @@ class SystemReportController extends Controller
         
         $purchase_data = DB::table('vendor_purchases_detail')
                 ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
-                ->select('product_master.idproduct_master', DB::raw('sum(vendor_purchases_detail.quantity) as total_quantity'))
-                ->groupBy('product_master.idproduct_master')
+                ->select('product_master.idproduct_master', DB::raw('sum(vendor_purchases_detail.quantity) as total_quantity'), 'vendor_purchases_detail.unit_purchase_price as purchase_price')
+                ->groupBy('product_master.idproduct_master', 'vendor_purchases_detail.unit_purchase_price')
                 ->where('product_master.idproduct_master', $product_id)
                 ->whereBetween('vendor_purchases_detail.created_at',[$start_date, $end_date])
                 ->first();
@@ -722,7 +739,7 @@ class SystemReportController extends Controller
                 ->where('inventory.idstore_warehouse', $idstore_warehouse)
                 ->first();        
         $sales_record = !empty($salse_data) ?  $salse_data->total_quantity * $purchase_price : 0;
-        $purchase_record = !empty($purchase_data) ?  $purchase_data->total_quantity * $purchase_price : 0;      
+        $purchase_record = !empty($purchase_data) ?  $purchase_data->total_quantity * $purchase_data->purchase_price : 0;      
         $inventory = !empty($inventory_data) ?  $inventory_data->total_quantity * $purchase_price : 0;
 
         $beginning_inventory = abs($purchase_record - $sales_record);
