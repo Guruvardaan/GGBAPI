@@ -22,31 +22,92 @@ class SystemReportController extends Controller
                     'product_master.name',
                     'product_master.barcode',
                     'inventory.idstore_warehouse',
-                    'inventory.purchase_price AS purchase_price'        
+                    'inventory.purchase_price AS purchase_price'         
                 );
 
+        $idstore_warehouse = 1;        
         if(!empty($_GET['idstore_warehouse'])) {
             $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+            $idstore_warehouse = $_GET['idstore_warehouse'];
         }        
 
-        $product_data = $data->get();
+        $product_data = $data->get()->chunk(10000);
+        $product_max = [];
+        $product_min = [];
 
         foreach($product_data as $product){
-            $cogs = $this->get_COGS($start_date, $end_date, $product->idproduct_master, $product->purchase_price, !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : $product->idstore_warehouse);
-            $avg_inventory = ($cogs['beginning_inventory'] + $cogs['quantity'])/2; 
-            $cogs_value = $cogs['cogs'];
-            $inventory_turnover_ratio = !empty($avg_inventory) ? $cogs_value/$avg_inventory : 0;
-            $product->cogs = $cogs_value;
-            $product->inventory_turnover_ratio = $inventory_turnover_ratio;
+            foreach($product as $item) {
+                $cogs = $this->product_wise_cogs($start_date, $end_date, $item->idproduct_master, $idstore_warehouse);
+                $item->cogs = $cogs['cogs'];
+                $item->inventory_turnover_ratio = $cogs['inventory_turnover_ratio'];
+            }
+            $max_inventory_turnover_ratio = $product->max('inventory_turnover_ratio');
+            $max_data = $product->where('inventory_turnover_ratio', $max_inventory_turnover_ratio)->first();
+            $product_max[] = $max_data;
+        
+            $min_inventory_turnover_ratio = $product->min('inventory_turnover_ratio');
+            $min_data =  $product->where('inventory_turnover_ratio', $min_inventory_turnover_ratio)->first();
+            $product_min[] = $min_data;
         }
 
-        $max_inventory_turnover_ratio = $product_data->max('inventory_turnover_ratio');
-        $min_inventory_turnover_ratio = $product_data->min('inventory_turnover_ratio');
-        $top_seller = $product_data->where('inventory_turnover_ratio', $max_inventory_turnover_ratio)->first();
-        $worst_seller = $product_data->where('inventory_turnover_ratio', $min_inventory_turnover_ratio)->first();
+        $max_ratios = array_column($product_max, 'inventory_turnover_ratio');
+        $maxIndex = array_keys($max_ratios, max($max_ratios))[0];
+        $top_seller = $product_max[$maxIndex];
+
+
+        $min_ratios = array_column($product_min, 'inventory_turnover_ratio');
+        $minIndex = array_keys($min_ratios, min($min_ratios))[0];
+        $worst_seller = $product_min[$minIndex];
+    
         $perfomance_data['top_seller'] = $top_seller;
         $perfomance_data['worst_seller'] = $worst_seller;
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $perfomance_data], 200);                                   
+    }
+
+    public function product_wise_cogs($start_date, $end_date, $idproduct_master, $idstore_warehouse) {
+        $order_data = DB::table('product_master')
+                ->leftJoin('order_detail', 'order_detail.idproduct_master', '=', 'product_master.idproduct_master')
+                ->leftJoin('customer_order', 'customer_order.idcustomer_order', '=', 'order_detail.idcustomer_order')
+                ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idproduct_master', '=', 'product_master.idproduct_master')
+                ->select('product_master.idproduct_master', DB::raw('sum(order_detail.quantity) as order_total_quantity'), DB::raw('sum(order_detail.quantity) as order_total_quantity'), DB::raw('sum(vendor_purchases_detail.quantity) as purchase_total_quantity'), 'vendor_purchases_detail.unit_purchase_price as purchase_price', )
+                ->groupBy('product_master.idproduct_master', 'vendor_purchases_detail.unit_purchase_price')
+                ->where('product_master.idproduct_master', $idproduct_master)
+                ->where('customer_order.idstore_warehouse', $idstore_warehouse)
+                ->whereBetween('customer_order.created_at',[$start_date, $end_date])
+                ->whereBetween('vendor_purchases_detail.created_at',[$start_date, $end_date])
+                ->first();   
+        $inventory_data = DB::table('inventory')
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+                ->select('product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'), 'inventory.purchase_price')
+                ->groupBy('product_master.idproduct_master', 'inventory.idstore_warehouse', 'inventory.purchase_price')
+                ->where('inventory.idproduct_master', $idproduct_master)
+                ->where('inventory.idstore_warehouse', $idstore_warehouse)
+                ->first();               
+        $beginning_inventory = 0;     
+        $purchase_record = 0; 
+        $beginning_quantity = 0;
+        if(!empty($order_data)) {
+            $sales_record = !empty($order_data->order_total_quantity) ? $order_data->order_total_quantity * $order_data->purchase_total_quantity : 0;
+            $purchase_record = !empty($order_data->purchase_total_quantity) ? $order_data->purchase_total_quantity * $order_data->purchase_total_quantity : 0;
+            $beginning_inventory = abs($purchase_record - $sales_record);
+            $beginning_quantity =  abs($order_data->order_total_quantity - $order_data->purchase_total_quantity);
+        }
+
+        $inventory = 0;
+        $inventory_quantity = 0;
+        if(!empty($inventory_data)) {
+            $inventory = $inventory_data->total_quantity * $inventory_data->purchase_price;
+            $inventory_quantity = $inventory_data->total_quantity;
+        }
+
+        $cogs = abs($beginning_inventory + $purchase_record - $inventory);
+        $avg_inventory = ($beginning_quantity + $inventory_quantity) / 2;
+        $inventory_turnover_ratio = (!empty($avg_inventory) && !empty($cogs)) ? $cogs/$avg_inventory : 0;
+        $data = [
+            'cogs' => round($cogs, 2),
+            'inventory_turnover_ratio' => round($inventory_turnover_ratio, 2)
+        ];
+        return $data;
     }
 
     public function get_year_over_year_growth() 
@@ -174,6 +235,7 @@ class SystemReportController extends Controller
 
     public function get_value_report(Request $request)
     {
+        ini_set('max_execution_time', 14000);
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
         $limit = !empty($_GET['rows']) ? $_GET['rows'] : 10;
@@ -182,7 +244,7 @@ class SystemReportController extends Controller
         $data = DB::table('inventory')
                 ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                 ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
-                ->select('inventory.idproduct_master','inventory.idstore_warehouse' ,'product_master.name', 'product_master.barcode',  'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', 'inventory.quantity As total_quantity');
+                ->select('inventory.idproduct_master' ,'product_master.name', 'product_master.barcode',  'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', 'inventory.quantity As total_quantity');
         if(!empty($request->idstore_warehouse)) {
             $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
         } 
@@ -200,7 +262,7 @@ class SystemReportController extends Controller
            $data->where('product_master.barcode', 'like', $barcode . '%');
         }
 
-        $totalRecords = $data->paginate(20)->total();
+        $totalRecords = $data->get()->count();
         $limit = abs($limit - $skip);
         $value_report_data =  $data->skip($skip)->take($limit)->get();
         foreach($value_report_data as $item) {
@@ -296,7 +358,7 @@ class SystemReportController extends Controller
             if(!empty($request->idstore_warehouse)) {
                 $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
             }
-        
+
             if(!empty($start_date) &&  !empty($end_date)) {
                 $data->whereBetween('inventory.created_at',[$start_date, $end_date]);
             }
@@ -307,10 +369,9 @@ class SystemReportController extends Controller
 
             if(!empty($_GET['field']) && $_GET['field']=="barcode"){
                 $barcode=$_GET['searchTerm'];
-               $data->where('product_master.barcode', 'like', $barcode . '%');
+                $data->where('product_master.barcode', 'like', $barcode . '%');
             }
         
-            $total = $data->paginate(20)->total();
             $stock_levels_report_data = $data->get();
             $productIds = $stock_levels_report_data->pluck('idproduct_master')->unique()->toArray();
             $selled_products = $this->get_selled_quantity($productIds);
@@ -329,11 +390,13 @@ class SystemReportController extends Controller
         
             $data = [];
             if($type === 'critical_products') {
-                $data = $stock_levels_report_data->whereBetween('remaining_product',[1,10])->skip($skip)->take($limit);
+                $data = $stock_levels_report_data->whereBetween('remaining_product',[1,10])->skip($skip)->take($limit)->values();
+                $total = $stock_levels_report_data->whereBetween('remaining_product',[1,10])->count();
             }
 
             if($type === 'replenishment_products') {
-                $data = $stock_levels_report_data->where('remaining_product', 0)->skip($skip)->take($limit);
+                $data = $stock_levels_report_data->where('remaining_product', 0)->skip($skip)->take($limit)->values();
+                $total = $stock_levels_report_data->where('remaining_product', 0)->count();
             }
             return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, "total" => $total], 200);                            
         
