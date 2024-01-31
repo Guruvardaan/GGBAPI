@@ -214,9 +214,9 @@ class GstReportController extends Controller
             if(!empty( $field) && !empty($searchTerm)) {
                 $total_purchase_record = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
             } else {
-                $total_purchase_record = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date);
+                $total_purchase_record = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $idstore_warehouse);
             }
-            $total = sizeof($total_purchase_record);
+            $total = !empty(sizeof($total_purchase_record)) ? sizeof($total_purchase_record) -1 : 0;
         }
 
         if($type === 'nil_reted_invoice') {
@@ -224,9 +224,9 @@ class GstReportController extends Controller
             if(!empty( $field) && !empty($searchTerm)) {
                 $total_purchase_record = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
             } else {
-                $total_purchase_record = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date);
+                $total_purchase_record = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $idstore_warehouse);
             }
-            $total = sizeof($total_purchase_record);
+            $total = !empty(sizeof($total_purchase_record)) ? sizeof($total_purchase_record) -1 : 0;
         }
 
         if($type === 'import_of_goods_invoices') {
