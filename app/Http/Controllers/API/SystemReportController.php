@@ -245,8 +245,8 @@ class SystemReportController extends Controller
                 ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                 ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                 ->select('inventory.idproduct_master' ,'product_master.name', 'product_master.barcode',  'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', 'inventory.quantity As total_quantity');
-        if(!empty($request->idstore_warehouse)) {
-            $data->where('inventory.idstore_warehouse', $request->idstore_warehouse);
+        if(!empty($_GET['idstore_warehouse'])) {
+            $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
         } 
 
         if(!empty($start_date) &&  !empty($end_date)) {
@@ -262,7 +262,7 @@ class SystemReportController extends Controller
            $data->where('product_master.barcode', 'like', $barcode . '%');
         }
 
-        $totalRecords = $data->get()->count();
+        $totalRecords = $data->count();
         $limit = abs($limit - $skip);
         $value_report_data =  $data->skip($skip)->take($limit)->get();
         foreach($value_report_data as $item) {
