@@ -61,6 +61,9 @@ class SystemReportController extends Controller
     
         $perfomance_data['top_seller'] = $top_seller;
         $perfomance_data['worst_seller'] = $worst_seller;
+        if(empty($top_seller) && empty($worst_seller)) {
+            $perfomance_data = [];
+        }
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $perfomance_data], 200);                                   
     }
 
@@ -241,8 +244,8 @@ class SystemReportController extends Controller
         $limit = !empty($_GET['rows']) ? $_GET['rows'] : 10;
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
 
-        $data = DB::table('inventory')
-                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
+        $data = DB::table('product_master')
+                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master')
                 ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                 ->select('inventory.idproduct_master' ,'product_master.name', 'product_master.barcode',  'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', 'inventory.quantity As total_quantity');
         if(!empty($_GET['idstore_warehouse'])) {
