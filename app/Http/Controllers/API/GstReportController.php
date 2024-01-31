@@ -50,7 +50,10 @@ class GstReportController extends Controller
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
         $field = !empty($_GET['field']) ? $_GET['field'] : null;
         $searchTerm = !empty($_GET['searchTerm']) ? $_GET['searchTerm'] : null;
+        $idstore_warehouse = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
         $link = '';
+        $data = [];
+        $total = 0;
         
         if($type === 'default') {
             $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date);
@@ -108,19 +111,20 @@ class GstReportController extends Controller
             $link = $url;
         } 
         if ($type === "b2c_small_invoice") {
-            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
+            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
             $data = $b2c_invoice['b2c_small_invoice'];
-            $total = !empty($b2c_invoice['b2c_small_invoice']) ? $b2c_invoice['total'] : 0;;
+            $total = !empty($b2c_invoice['b2c_small_invoice']) ? $b2c_invoice['total'] : 0;
         }
         if ($type === "b2c_large_invoice") {
-            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
+            $b2c_invoice = Helper::get_b2c_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
             $data = $b2c_invoice['b2c_large_invoice'];
             $total = !empty($b2c_invoice['b2c_large_invoice']) ? $b2c_invoice['total'] : 0;
         }
         if ($type === "nil_reted") {
-            $nil_reted = Helper::get_nil_reted_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
-            $data = $nil_reted;
+            $nil_reted = Helper::get_nil_reted_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
             $total = $nil_reted['records'];
+            unset($nil_reted['records']);
+            $data = $nil_reted;
         }
         if ($type === "export_nvoices") {
             $data = [];
@@ -148,7 +152,10 @@ class GstReportController extends Controller
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
         $field = !empty($_GET['field']) ? $_GET['field'] : null;
         $searchTerm = !empty($_GET['searchTerm']) ? $_GET['searchTerm'] : null;
+        $idstore_warehouse = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
         $link = '';
+        $data = [];
+        $total = 0;
         
 
         if($type === 'default') {
@@ -203,14 +210,22 @@ class GstReportController extends Controller
         }
         
         if($type === 'b2b_purchase_invoice') {
-            $data = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
-            $total_purchase_record = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date);
+            $data = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
+            if(!empty( $field) && !empty($searchTerm)) {
+                $total_purchase_record = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
+            } else {
+                $total_purchase_record = Helper::get_b2b_purchase_invoice($year, $month, $start_date, $end_date);
+            }
             $total = sizeof($total_purchase_record);
         }
 
         if($type === 'nil_reted_invoice') {
-            $data = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $limit, $skip, $field, $searchTerm);
-            $total_purchase_record = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date);
+            $data = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
+            if(!empty( $field) && !empty($searchTerm)) {
+                $total_purchase_record = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $idstore_warehouse, $limit, $skip, $field, $searchTerm);
+            } else {
+                $total_purchase_record = Helper::get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date);
+            }
             $total = sizeof($total_purchase_record);
         }
 

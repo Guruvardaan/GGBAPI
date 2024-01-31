@@ -352,10 +352,12 @@ class Helper
         return $data;
     }
     
-    public static function get_b2c_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
+    public static function get_b2c_invoice($year, $month, $start_date, $end_date, $idstore_warehouse = null, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $B2C_invoice_data = DB::table('customer_order')
                                    ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer') 
+                                   ->leftJoin('order_detail', 'order_detail.idcustomer_order', '=', 'customer_order.idcustomer_order')
+                                   ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
                                    ->select('users.name as desc', 'customer_order.created_at as invoice_date', 'customer_order.idcustomer_order as invoice_no', 'customer_order.total_price as invoice_value');
                                  
         if(!empty($start_date) &&  !empty($end_date)) {
@@ -375,8 +377,14 @@ class Helper
         $find_hsn = null;
         if(!empty($field) && $field=="hsn"){
             $find_hsn = $searchTerm;
+            $B2C_invoice_data->where('product_master.hsn', 'like', $find_hsn . '%');
         }
 
+        if(!empty($idstore_warehouse)) {
+            $B2C_invoice_data->where('customer_order.idstore_warehouse', $idstore_warehouse);
+        } 
+
+        $totalRecords = $B2C_invoice_data->count();
         if(!empty($limit)) {
             $skip = !empty($skip) ? $skip : 0;
             $limit = abs($limit - $skip);
@@ -384,8 +392,6 @@ class Helper
         } else {
             $B2C_invoice = $B2C_invoice_data->get();
         }                        
-
-        $totalRecords = $B2C_invoice_data->count();
 
         $total_quantity = 0.00;
         $total_amount = 0.00;
@@ -473,11 +479,13 @@ class Helper
         return $order_detail;                 
     }
 
-    public static function get_nil_reted_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
+    public static function get_nil_reted_invoice($year, $month, $start_date, $end_date, $idstore_warehouse = null, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $nil_reted_data = DB::table('customer_order')
                                    ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer')
                                    ->leftJoin('order_detail', 'order_detail.idcustomer_order', '=', 'customer_order.idcustomer_order') 
+                                   ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                                   ->select('users.name as desc', 'customer_order.created_at as invoice_date', 'customer_order.idcustomer_order as invoice_no', 'customer_order.total_price as invoice_value')
                                    ->select('users.name as desc', 'customer_order.created_at as invoice_date', 'customer_order.idcustomer_order as invoice_no', 'customer_order.total_price as invoice_value')
                                    ->where('order_detail.total_sgst', '=', 0)
                                    ->where('order_detail.total_cgst', '=', 0);
@@ -497,7 +505,13 @@ class Helper
         $find_hsn = null;
         if(!empty($field) && $field=="hsn"){
             $find_hsn = $searchTerm;
+            $nil_reted_data->where('product_master.hsn', 'like', $find_hsn . '%');
         }
+
+        if(!empty($idstore_warehouse)) {
+            $nil_reted_data->where('customer_order.idstore_warehouse', $idstore_warehouse);
+        }
+
         $nil_reted = $nil_reted_data->get();
         $totalRecords = $nil_reted_data->get()->count();
 
@@ -593,10 +607,11 @@ class Helper
         return $order_detail;                
     }
 
-    public static function get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
+    public static function get_b2b_purchase_invoice($year, $month, $start_date, $end_date, $idstore_warehouse = null, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $b2b_invoices_data = DB::table('vendor_purchases')
                         ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
+                        ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', 'vendor_purchases.idvendor_purchases')
                         ->select('vendor.name as desc', 'vendor_purchases.created_at as invoice_date', 'vendor_purchases.bill_number as invoice_no', 'vendor.gst as gstin', 'vendor_purchases.idvendor_purchases');
         
         if(!empty($start_date) &&  !empty($end_date)) {
@@ -616,6 +631,11 @@ class Helper
         $find_hsn = null;
         if(!empty($field) && $field=="hsn"){
             $find_hsn = $searchTerm;
+            $b2b_invoices_data->where('vendor_purchases_detail.hsn', 'like', $find_hsn . '%');
+        }
+
+        if(!empty($idstore_warehouse)) {
+            $b2b_invoices_data->where('vendor_purchases.idstore_warehouse', $idstore_warehouse);
         }
 
         if(!empty($limit)) {
@@ -625,6 +645,7 @@ class Helper
         } else {
             $b2b_invoices = $b2b_invoices_data->get();
         } 
+
 
         $total_quantity = 0.00;
         $total_amount = 0.00;
@@ -708,7 +729,7 @@ class Helper
         return $order_detail;                 
     }
 
-    public static function get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $limit = null, $skip = null, $field = null, $searchTerm = null)
+    public static function get_b2b_purchase_nil_reted_invoice($year, $month, $start_date, $end_date, $idstore_warehouse = null, $limit = null, $skip = null, $field = null, $searchTerm = null)
     {
         $b2b_nil_reted_invoices_data = DB::table('vendor_purchases')
                         ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', 'vendor_purchases.idvendor_purchases')
@@ -733,6 +754,10 @@ class Helper
         $find_hsn = null;
         if(!empty($field) && $field=="hsn"){
             $find_hsn = $searchTerm;
+        }
+
+        if(!empty($idstore_warehouse)) {
+            $b2b_nil_reted_invoices_data->where('vendor_purchases.idstore_warehouse', $idstore_warehouse);
         }
 
         if(!empty($limit)) {
