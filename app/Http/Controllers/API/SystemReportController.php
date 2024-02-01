@@ -246,7 +246,7 @@ class SystemReportController extends Controller
 
         $data = DB::table('product_master')
                 ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master')
-                ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
+                ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'product_master.idproduct_master')
                 ->select('inventory.idproduct_master' ,'product_master.name', 'product_master.barcode',  'product_batch.purchase_price', 'product_batch.selling_price', 'inventory.created_at', 'inventory.quantity As total_quantity');
         if(!empty($_GET['idstore_warehouse'])) {
             $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
@@ -835,37 +835,39 @@ class SystemReportController extends Controller
         // $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
         $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
-        $start_date =  !empty($request->start_date) ? $request->start_date : null;
-        $end_date = !empty($request->end_date)? $request->end_date :  null;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] : null;
       
-        $data = DB::table('vendor_purchases_detail')
-                ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')   
+        $data = DB::table('vendor_purchases')
+                ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases')
+                ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
                 ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
                 ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
                 ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
-                ->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category')
                 ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
-                ->leftJoin('vendor_purchases', 'vendor_purchases.idvendor_purchases', '=', 'vendor_purchases_detail.idvendor_purchases')
-                ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
                 ->select(
-                    'inventory.idstore_warehouse',
-                    'inventory.idproduct_master',
+                    'vendor_purchases.idvendor_purchases',
                     'vendor.name AS vendor_name',
-                    'product_master.name',
-                    'product_master.idcategory',
-                    'category.name As category_name',
-                    'product_master.idsub_category',
-                    'sub_category.name as sub_category_name',
-                    'product_master.idsub_sub_category',
-                    'sub_sub_category.name AS sub_sub_category_name',
-                    'product_master.idbrand',
-                    'brands.name As brand_name',
-                    'vendor_purchases_detail.quantity',
-                    'product_master.cgst',
-                    'product_master.sgst',
-                    'product_master.igst',
-                    'vendor_purchases_detail.unit_purchase_price as purchase_price',
-                    DB::Raw('vendor_purchases_detail.unit_purchase_price * vendor_purchases_detail.quantity As amount')
+                    'vendor_purchases.bill_number',
+                    'vendor_purchases.total',
+                    'vendor_purchases.sgst',
+                    'vendor_purchases.cgst',
+                    'vendor_purchases.igst',
+                    'vendor_purchases.items',
+                    'vendor_purchases.quantity',
+                    'vendor_purchases.created_at'
+                )
+                ->groupBy(
+                    'vendor_purchases.idvendor_purchases',
+                    'vendor.name',
+                    'vendor_purchases.bill_number',
+                    'vendor_purchases.total',
+                    'vendor_purchases.sgst',
+                    'vendor_purchases.cgst',
+                    'vendor_purchases.igst',
+                    'vendor_purchases.items',
+                    'vendor_purchases.quantity',
+                    'vendor_purchases.created_at'
                 );
 
         if(!empty($_GET['field']) && $_GET['field']=="product"){
@@ -885,6 +887,9 @@ class SystemReportController extends Controller
         }
         if(!empty($_GET['field']) && $_GET['field']=="vendor"){
             $data->where('vendor.name', 'like', $_GET['searchTerm'] . '%');
+        }
+        if(!empty($_GET['field']) && $_GET['field']=="bill_no"){
+            $data->where('vendor_purchases.bill_number', $_GET['searchTerm']);
         }     
         if(!empty($_GET['idstore_warehouse'])) {
             $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
@@ -895,36 +900,86 @@ class SystemReportController extends Controller
            $data->where('product_master.barcode', 'like', $barcode . '%');
         }
 
+        if(!empty($_GET['field']) && $_GET['field']=="hsn"){
+            $data->where('vendor_purchases_detail.hsn', 'like', $_GET['searchTerm'] . '%');
+        }
+
+        if(!empty($_GET['field']) && $_GET['field']=="expiry"){
+            $data->where('vendor_purchases_detail.expiry', $_GET['searchTerm']);
+        }
+
         $totalRecords = $data->paginate(20)->total();
         $limit = abs($limit - $skip);
         $purchase_order_report = $data->skip($skip)->take($limit)->get(); 
         // dd($purchase_order_report);
         $gross_total = 0;
-        foreach($purchase_order_report as $product) {
-            $cgst = 0;
-            $sgst = 0;
-            $igst = 0;
-            $product->amount = round($product->amount, 2);
-            if(!empty($product->cgst)) {
-                $cgst = $product->amount * ($product->cgst/100);
-            }
-            if(!empty($product->sgst)) {
-                $sgst = $product->amount * ($product->sgst/100);
-            }
-            if(!empty($product->igst)) {
-                $sgst = $product->amount * ($product->igst/100);
-            }
-            $product->cgst_amount = $cgst;
-            $product->sgst_amount = $sgst;
-            $product->igst_amount = $igst;
-
-            $total_amount_with_tax = $product->amount + $sgst + $cgst;
-            $product->total_amount_with_tax = round($total_amount_with_tax, 2);
-            $gross_total += $total_amount_with_tax;
+        foreach($purchase_order_report as $purchase_order) {
+            $purchase_order->products = $this->get_purchase_order_detail($purchase_order->idvendor_purchases, !empty($_GET['field']) ? $_GET['field'] : null, !empty($_GET['searchTerm']) ? $_GET['searchTerm'] : null);
         }
-        $purchase_order_report['gross_total'] = round($gross_total, 2);
+        // $purchase_order_report['gross_total'] = round($gross_total, 2);
 
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $purchase_order_report, 'total' => $totalRecords], 200);        
+    }
+
+    public function get_purchase_order_detail($id, $field = null, $searchTerm = null)
+    {
+        $data = DB::table('vendor_purchases_detail')
+        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+        ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+        ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+        ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+        ->select(
+            'product_master.idproduct_master',
+            'product_master.name as product_name',
+            'category.name as category_name',
+            'sub_category.name as sub_category_name',
+            'brands.name as brand_name',
+            'product_master.barcode',
+            'vendor_purchases_detail.hsn',
+            'vendor_purchases_detail.expiry',
+            'vendor_purchases_detail.quantity',
+            'vendor_purchases_detail.mrp',
+            'vendor_purchases_detail.selling_price',
+            'product_master.sgst',
+            'product_master.cgst',
+            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (vendor_purchases_detail.unit_purchase_price + (vendor_purchases_detail.unit_purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE vendor_purchases_detail.unit_purchase_price END),2) AS purchase_price'),
+            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (vendor_purchases_detail.unit_purchase_price + (vendor_purchases_detail.unit_purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE vendor_purchases_detail.unit_purchase_price END) * vendor_purchases_detail.quantity, 2) As amount')
+        )
+        ->where('vendor_purchases_detail.idvendor_purchases', $id);
+    
+        if(!empty($field) && !empty($searchTerm) && $field !== 'vendor' && $field !== 'bill_no') {
+            if($field === 'product'){
+                $data->where('product_master.name', 'like', $searchTerm . '%');
+            }
+
+            if($field === 'barcode'){
+                $data->where('product_master.barcode', 'like', $searchTerm . '%');
+            }
+
+            if($field === 'category'){
+                $data->where('category.name', 'like', $searchTerm . '%');
+            }
+
+            if($field === 'sub_category'){
+                $data->where('sub_category.name', 'like', $searchTerm . '%');
+            }
+
+            if($field === 'brand'){
+                $data->where('brand.name', 'like', $searchTerm . '%');
+            }
+
+            if($field === 'hsn'){
+                $data->where('vendor_purchases_detail.hsn', 'like', $searchTerm . '%');
+            }
+
+            if($field === "expiry"){
+                $data->where('vendor_purchases_detail.expiry', $searchTerm);
+            }
+        }
+
+        $product_data = $data->get();
+
+        return $product_data;
     }
 
 }

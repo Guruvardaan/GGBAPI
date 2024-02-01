@@ -104,3 +104,5 @@ Route::post('get-order', [OrderReport::class, 'getOrder']);
 
 //year_over_year_growth perfomance
 Route::get('year-over-year-growth', [SystemReportController::class, 'get_year_over_year_growth']);
+Route::get('inventory-state-data', [InventoryReportController::class, 'get_inventory_state_data']);
+Route::get('product-report-state-data', [ProductReportController::class, 'product_report_state']);
