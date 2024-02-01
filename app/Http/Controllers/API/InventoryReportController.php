@@ -59,6 +59,10 @@ class InventoryReportController extends Controller
              $barcode=$_GET['searchTerm'];
             $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
         }
+
+        if(!empty($_GET['field']) && $_GET['field']=="product"){
+            $inventories_data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+        }
         
         
         if(!empty($_GET['idstore_warehouse'])) {
@@ -93,19 +97,28 @@ class InventoryReportController extends Controller
                             )
                             ->whereIn('product_master.barcode', $product_with_distinct_barcode);
         //
-        if(!empty($_GET['idstore_warehouse'])) {
-            $inventories_data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
-        }                       
-        
         if(!empty($_GET['field']) && $_GET['field']=="brand"){
             $inventories_data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
-        }
+       }
         if(!empty($_GET['field']) && $_GET['field']=="category"){
             $inventories_data->where('category.name', 'like', $_GET['searchTerm'] . '%');
-        }
+       }
         if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
             $inventories_data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
-        }
+       }
+        if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+            $barcode=$_GET['searchTerm'];
+           $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
+       }
+
+       if(!empty($_GET['field']) && $_GET['field']=="product"){
+           $inventories_data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+       }
+       
+       
+       if(!empty($_GET['idstore_warehouse'])) {
+           $inventories_data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+       }
 
         $inventories = $inventories_data->get();
         $total_stock = 0;
