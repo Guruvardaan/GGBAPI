@@ -18,9 +18,8 @@ class InventoryReportController extends Controller
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
 
         $product_with_distinct_barcode = $this->get_product_with_distinct_barcode();
-
+        $total = DB::table('inventory')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')->select('product_master.idproduct_master');
         $inventories_data = DB::table('inventory')
-                            ->leftJoin('store_warehouse', 'store_warehouse.idstore_warehouse', '=', 'inventory.idstore_warehouse')
                             ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
                             ->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')
                             ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
@@ -28,7 +27,7 @@ class InventoryReportController extends Controller
                             ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idproduct_master', '=', 'product_master.idproduct_master')
                             ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
                             ->select(
-                                'store_warehouse.idstore_warehouse', 
+                                'inventory.idstore_warehouse', 
                                 'product_master.idproduct_master', 
                                 'product_master.name As product_name',
                                 'product_master.barcode',
@@ -48,32 +47,38 @@ class InventoryReportController extends Controller
                    
         if(!empty($_GET['field']) && $_GET['field']=="brand"){
              $inventories_data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
+             $total->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')->where('brands.name', 'like', $_GET['searchTerm'] . '%');
         }
          if(!empty($_GET['field']) && $_GET['field']=="category"){
              $inventories_data->where('category.name', 'like', $_GET['searchTerm'] . '%');
+             $total->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')->where('category.name', 'like', $_GET['searchTerm'] . '%');
         }
          if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
              $inventories_data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
+             $total->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
         }
          if(!empty($_GET['field']) && $_GET['field']=="barcode"){
              $barcode=$_GET['searchTerm'];
             $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
+            $total->where('product_master.barcode', 'like', $barcode . '%');
         }
 
         if(!empty($_GET['field']) && $_GET['field']=="product"){
             $inventories_data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+            $total->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
         }
         
         
         if(!empty($_GET['idstore_warehouse'])) {
             $inventories_data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+            $total->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
         }       
 
         if(!empty($start_date) &&  !empty($end_date)) {
             $inventories_data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
 
-        $totalRecords = $inventories_data->count();
+        $totalRecords = $total->count();
         $limit = abs($limit - $skip);
         $inventories = $inventories_data->skip($skip)->take($limit)->get();                          
         
