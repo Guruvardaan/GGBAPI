@@ -773,7 +773,19 @@ class SystemReportController extends Controller
                          ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
                          ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
                          ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
-                         ->select('order_detail.idproduct_master', 'product_master.name', 'product_master.barcode', 'category.name As category_name', 'sub_category.name As sub_category_name', 'brands.name As brand_name', 'order_detail.quantity', 'order_detail.total_price', 'order_detail.total_sgst', 'order_detail.total_cgst', 'order_detail.discount')  
+                         ->select(
+                            'order_detail.idproduct_master', 
+                            'product_master.name', 
+                            'product_master.barcode', 
+                            'category.name As category_name', 
+                            'sub_category.name As sub_category_name', 
+                            'brands.name As brand_name', 
+                            'order_detail.quantity', 
+                            'order_detail.total_price', 
+                            'order_detail.total_sgst', 
+                            'order_detail.total_cgst', 
+                            'order_detail.discount'
+                         )  
                          ->where('idcustomer_order', $id);
         //
         if(!empty($field) && !empty($searchTerm) && $field !== 'vendor' && $field !== 'bill_no') {
@@ -954,8 +966,10 @@ class SystemReportController extends Controller
                     'product_master.cgst',
                     'product_master.sgst',
                     'product_master.igst',
+                    'vendor_purchases_detail.selling_price',
                     DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (vendor_purchases_detail.unit_purchase_price  + (vendor_purchases_detail.unit_purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE vendor_purchases_detail.unit_purchase_price  END), 2) AS purchase_price'),
-                    DB::Raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (vendor_purchases_detail.unit_purchase_price  + (vendor_purchases_detail.unit_purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE vendor_purchases_detail.unit_purchase_price  END), 2) * vendor_purchases_detail.quantity As amount'),
+                    DB::Raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (vendor_purchases_detail.unit_purchase_price  + (vendor_purchases_detail.unit_purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE vendor_purchases_detail.unit_purchase_price  END) * vendor_purchases_detail.quantity, 2) As amount_with_tax'),
+                    DB::Raw('ROUND(vendor_purchases_detail.unit_purchase_price * vendor_purchases_detail.quantity, 2) As taxable_amount'),
                 );
 
         if(!empty($_GET['field']) && $_GET['field']=="product"){
@@ -1001,21 +1015,20 @@ class SystemReportController extends Controller
             $cgst = 0;
             $sgst = 0;
             $igst = 0;
-            $product->amount = round($product->amount, 2);
             if(!empty($product->cgst)) {
-                $cgst = $product->amount * ($product->cgst/100);
+                $cgst = $product->taxable_amount * ($product->cgst/100);
             }
             if(!empty($product->sgst)) {
-                $sgst = $product->amount * ($product->sgst/100);
+                $sgst = $product->taxable_amount * ($product->sgst/100);
             }
             if(!empty($product->igst)) {
-                $sgst = $product->amount * ($product->igst/100);
+                $sgst = $product->taxable_amount * ($product->igst/100);
             }
             $product->cgst_amount = round($cgst, 2);
             $product->sgst_amount = round($sgst, 2);
             $product->igst_amount = round($igst, 2);
         
-            $gross_total += $product->amount;
+            $gross_total += $product->amount_with_tax;
         }
         $purchase_order_report['gross_total'] = round($gross_total, 2);
 
@@ -1179,5 +1192,13 @@ class SystemReportController extends Controller
         }
 
         return $data;
+    }
+
+    public function get_sales_report_state()
+    {
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
+        
+        $total_customer_order = DB::table('customer_order')->select('idcustomer_order')->count();
     }
 }
