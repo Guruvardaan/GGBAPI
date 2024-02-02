@@ -832,7 +832,6 @@ class SystemReportController extends Controller
 
     public function get_purchase_order_report(Request $request)
     {
-        // $limit = !empty($_GET['limit']) ? $_GET['limit'] : 25;
         $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
         $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
@@ -892,7 +891,7 @@ class SystemReportController extends Controller
             $data->where('vendor_purchases.bill_number', $_GET['searchTerm']);
         }     
         if(!empty($_GET['idstore_warehouse'])) {
-            $data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+            $data->where('vendor_purchases.idstore_warehouse', $_GET['idstore_warehouse']);
         }
 
         if(!empty($_GET['field']) && $_GET['field']=="barcode"){
@@ -908,16 +907,17 @@ class SystemReportController extends Controller
             $data->where('vendor_purchases_detail.expiry', $_GET['searchTerm']);
         }
 
+        if(!empty($start_date) && !empty($end_date)) {
+            $data->whereBetween('vendor_purchases.created_at',[$start_date, $end_date]);
+        }
+
         $totalRecords = $data->paginate(20)->total();
         $limit = abs($limit - $skip);
         $purchase_order_report = $data->skip($skip)->take($limit)->get(); 
-        // dd($purchase_order_report);
         $gross_total = 0;
         foreach($purchase_order_report as $purchase_order) {
             $purchase_order->products = $this->get_purchase_order_detail($purchase_order->idvendor_purchases, !empty($_GET['field']) ? $_GET['field'] : null, !empty($_GET['searchTerm']) ? $_GET['searchTerm'] : null);
         }
-        // $purchase_order_report['gross_total'] = round($gross_total, 2);
-
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $purchase_order_report, 'total' => $totalRecords], 200);        
     }
 
@@ -982,4 +982,99 @@ class SystemReportController extends Controller
         return $product_data;
     }
 
+    public function get_purchase_order_state()
+    {
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] : null;
+
+        $total_purchase_order = DB::table('vendor_purchases')->select('idvendor_purchases')->count();
+
+        $vendor = DB::table('vendor_purchases')
+                ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases')
+                ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                ->select(DB::raw('COUNT(DISTINCT(vendor.idvendor)) as total_vendor'));
+        //
+        $product = DB::table('vendor_purchases')
+                ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases')
+                ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                ->select(DB::raw('COUNT(DISTINCT(vendor_purchases_detail.idproduct_master)) as total_product')); 
+        //
+        $stock = DB::table('vendor_purchases')
+                ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idvendor_purchases', '=', 'vendor_purchases.idvendor_purchases')
+                ->leftJoin('vendor', 'vendor.idvendor', '=', 'vendor_purchases.idvendor')
+                ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'vendor_purchases_detail.idproduct_master')
+                ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                ->select(DB::raw('SUM(vendor_purchases_detail.quantity) as total_stock'), DB::raw('SUM(vendor_purchases_detail.quantity * ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (vendor_purchases_detail.unit_purchase_price + (vendor_purchases_detail.unit_purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE vendor_purchases_detail.unit_purchase_price END),2)) as total_stock_amount'));                       
+        $field = !empty($_GET['field']) ? $_GET['field'] : null;
+        $searchTerm = !empty($_GET['searchTerm']) ? $_GET['searchTerm'] : null;
+        $idstore_warehouse = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
+        $total_vendor = $this->filter($vendor, $idstore_warehouse, $field, $searchTerm, $start_date, $end_date)->first()->total_vendor;
+        $total_product = $this->filter($product, $idstore_warehouse, $field, $searchTerm, $start_date, $end_date)->first()->total_product;
+        $stock_detail = $this->filter($stock, $idstore_warehouse, $field, $searchTerm, $start_date, $end_date)->first();
+        $total_stock = $stock_detail->total_stock;
+        $data = [
+            'total_vendor' => $total_vendor,
+            'total_product' => $total_product,
+            'total_purchase_stock' => $total_stock,
+            'avg_purchase_stock' => !empty($total_stock) ? round($total_stock/$total_purchase_order) : 0,
+        ];
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data,], 200); 
+    }
+
+    public function filter($data, $idstore_warehouse = null, $field = null, $searchTerm = null, $start_date = null, $end_date = null)
+    {
+        if(!empty($field ) && $field =="product"){
+            $data->where('product_master.name', 'like', $searchTerm . '%');
+        }
+        if(!empty($field ) && $field =="brand"){
+            $data->where('brands.name', 'like', $searchTerm . '%');
+        }
+        if(!empty($field ) && $field =="category"){
+                    $data->where('category.name', 'like', $searchTerm . '%');
+        }
+        if(!empty($field ) && $field =="sub_category"){
+            $data->where('sub_category.name', 'like', $searchTerm . '%');
+        }  
+        if(!empty($start_date) &&  !empty($end_date)) {
+             $data->whereBetween('vendor_purchases_detail.created_at',[$start_date, $end_date]);
+        }
+        if(!empty($field ) && $field =="vendor"){
+            $data->where('vendor.name', 'like', $searchTerm . '%');
+        }
+        if(!empty($field ) && $field =="bill_no"){
+            $data->where('vendor_purchases.bill_number', $searchTerm);
+        }     
+        if(!empty($idstore_warehouse)) {
+            $data->where('vendor_purchases.idstore_warehouse', $idstore_warehouse);
+        }
+
+        if(!empty($field ) && $field =="barcode"){
+            $barcode=$searchTerm;
+           $data->where('product_master.barcode', 'like', $barcode . '%');
+        }
+
+        if(!empty($field ) && $field =="hsn"){
+            $data->where('vendor_purchases_detail.hsn', 'like', $searchTerm . '%');
+        }
+
+        if(!empty($field ) && $field =="expiry"){
+            $data->where('vendor_purchases_detail.expiry', $searchTerm);
+        }
+
+        if(!empty($start_date) && !empty($end_date)) {
+            $data->whereBetween('vendor_purchases.created_at',[$start_date, $end_date]);
+        }
+
+        return $data;
+    }
 }
