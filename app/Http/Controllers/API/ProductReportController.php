@@ -127,6 +127,7 @@ class ProductReportController extends Controller
             }
 
             $totalRecords = $productmaster->count();
+            $limit = abs($limit - $skip);
             $products = $productmaster->skip($skip)->take($limit)->get();
 
             return response()->json(["statusCode" => 0, "message" => "Success", "data" => $products, 'total' => $totalRecords], 200);
