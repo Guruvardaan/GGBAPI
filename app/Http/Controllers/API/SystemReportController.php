@@ -1021,12 +1021,14 @@ class SystemReportController extends Controller
         $total_vendor = $this->filter($vendor, $idstore_warehouse, $field, $searchTerm, $start_date, $end_date)->first()->total_vendor;
         $total_product = $this->filter($product, $idstore_warehouse, $field, $searchTerm, $start_date, $end_date)->first()->total_product;
         $stock_detail = $this->filter($stock, $idstore_warehouse, $field, $searchTerm, $start_date, $end_date)->first();
-        $total_stock = $stock_detail->total_stock;
+        $total_stock = $stock_detail->total_stock; 
+        $total_stock_amount = $stock_detail->total_stock_amount;
         $data = [
             'total_vendor' => $total_vendor,
             'total_product' => $total_product,
             'total_purchase_stock' => $total_stock,
             'avg_purchase_stock' => !empty($total_stock) ? round($total_stock/$total_purchase_order) : 0,
+            'total_stock_amount' => round($total_stock_amount, 2)
         ];
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data,], 200); 
     }
