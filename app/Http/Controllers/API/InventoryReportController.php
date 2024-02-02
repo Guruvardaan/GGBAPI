@@ -222,26 +222,22 @@ class InventoryReportController extends Controller
 
     public function expried_and_expiring_inventory(Request $request)
     {
-        $store_id = !empty($request->store_id) ? $request->store_id : null;
-        $graph_type = !empty($request->graph_type) ? $request->graph_type : null;
-        $start_date =  !empty($request->start_date) ? $request->start_date : null;
-        $end_date = !empty($request->end_date)? $request->end_date :  null;
-        $limit = !empty($request->rows) ? $request->rows : 50;
-        $skip = !empty($request->first) ? $request->first : 0;
+        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        $graph_type = !empty($_GET['graph_type']) ? $_GET['graph_type'] : null;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
+        $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
+        $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
     
         $inventories_data = DB::table('product_master')
-                            // ->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')
-                            // ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
-                            // ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
                             ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master');
-        // ->whereIn('inventory.idproduct_master', $ids);
         
         if(!empty($start_date) &&  !empty($end_date)) {
             $inventories_data->whereBetween('inventory.created_at',[$start_date, $end_date]);
         }
     
         if($graph_type === 'brands') {
-            $inventories_data->RightJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
+            $inventories_data->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
             $inventories_data->select('product_master.idbrand','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
             $inventories_data->groupBy('product_master.idbrand','product_master.idproduct_master');
         }
@@ -460,5 +456,90 @@ class InventoryReportController extends Controller
         }
         return $name->name??"";
     }
+
+    public function expried_and_expiring_state()
+    {
+        // dd(1);
+        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        $graph_type = !empty($_GET['graph_type']) ? $_GET['graph_type'] : null;
+        $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
+        $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
+        // $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
+        // $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
+    
+        $inventories_data = DB::table('product_master')
+                            ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master');
+        
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $inventories_data->whereBetween('inventory.created_at',[$start_date, $end_date]);
+        }
+    
+        if($graph_type === 'brands') {
+            $inventories_data->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
+            $inventories_data->select('product_master.idproduct_master');
+        }
+
+        if($graph_type === 'category') {
+            $inventories_data->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory');
+            $inventories_data->select('product_master.idproduct_master');
+        }
+
+        if($graph_type === 'sub_category') {
+            $inventories_data->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category');
+            $inventories_data->select('product_master.idproduct_master');
+        }
+
+        if($graph_type === 'sub_sub_category') {
+            $inventories_data->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category');
+            $inventories_data->select('product_master.idproduct_master');
+        }
+
+        if(!empty($request->field) && $request->field =="brand"){
+            $inventories_data->where('brands.name', 'like', $request->searchTerm . '%');
+       }
+        if(!empty($request->field) && $request->field=="category"){
+            $inventories_data->where('category.name', 'like', $request->searchTerm . '%');
+       }
+        if(!empty($request->field) && $request->field=="sub_category"){
+            $inventories_data->where('sub_category.name', 'like', $request->searchTerm . '%');
+       }
+        if(!empty($request->field) && $request->field=="barcode"){
+            $barcode=$request->searchTerm;
+           $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
+       }
+       if(!empty($request->field) && $request->field=="product"){
+           $inventories_data->where('product_master.name', 'like', $request->searchTerm . '%');
+       }
+
+       if(!empty($store_id)) {
+           $inventories_data->where('inventory.idstore_warehouse', $store_id);
+       }
+        $inventories = $inventories_data->get();
+        $total_expried_amount = 0;
+        $total_xpiring_in_30_days_amount = 0;
+        $total_not_expired_amount = 0;
+        
+        foreach($inventories as $inventory) {
+            $expired_data = $this->get_expired_product($inventory->idproduct_master);
+            $expiring_data = $this->get_expiring_in_30days($inventory->idproduct_master);
+            $not_expired = $this->get_not_expired_product($inventory->idproduct_master);
+            if(!empty($expired_data)) {
+                $total_expried_amount += $expired_data->quantity * $expired_data->mrp;
+            }
+            if(!empty($expiring_data)) {
+                $total_xpiring_in_30_days_amount += $expiring_data->quantity * $expiring_data->mrp;
+            }
+            if(!empty($not_expired)) {
+                $total_not_expired_amount = $not_expired->quantity * $not_expired->mrp;
+            }
+        }
+
+        $data['total_expried_amount'] = $total_expried_amount;
+        $data['total_xpiring_in_30_days_amount'] = $total_xpiring_in_30_days_amount;
+        $data['total_not_expired_amount'] = $total_not_expired_amount;
+
+        return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);
+    }
 }
+
 

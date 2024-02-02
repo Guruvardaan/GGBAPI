@@ -108,3 +108,4 @@ Route::get('inventory-state-data', [InventoryReportController::class, 'get_inven
 Route::get('product-report-state-data', [ProductReportController::class, 'product_report_state']);
 Route::get('purchase-order-state-data', [SystemReportController::class, 'get_purchase_order_state']);
 Route::get('sales-order-state-data', [SystemReportController::class, 'get_sales_report_state']);
+Route::get('expried-and-expiring-state', [InventoryReportController::class, 'expried_and_expiring_state']);
