@@ -467,7 +467,7 @@ class Helper
     {
         $data = DB::table('order_detail')
                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
-                        ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'order_detail.total_sgst as SGST', 'order_detail.total_cgst as CGST')
+                        ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
                         ->where('order_detail.idcustomer_order', $id)
                         ->where('total_sgst', '<>', 0)
                         ->where('total_cgst', '<>', 0);
@@ -595,7 +595,7 @@ class Helper
     {
         $data = DB::table('order_detail')
                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
-                        ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'order_detail.total_sgst as SGST', 'order_detail.total_cgst as CGST')
+                        ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
                         ->where('order_detail.idcustomer_order', $id)
                         ->where('total_sgst', '=', 0)
                         ->where('total_cgst', '=', 0);
