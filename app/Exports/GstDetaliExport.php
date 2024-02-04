@@ -159,7 +159,7 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
         $cat_wise_total = [];
         foreach($data as $key => $item) {
          if(in_array($key, $fileds)) {
-            $cat_wise_total[$key] = $item['total'];
+            $cat_wise_total[$key] =  !empty($item['total']) ? $item['total'] : 0;
             foreach($item as $p_key => $products) {
                 if(!empty($products->products)) {
                     foreach($products->products as $index => $product) {
@@ -220,7 +220,7 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
                         $total_amount += $product['amount'];
                     }
                 }
-                $array[] = $result; 
+                $array[] = !empty($result) ? $result : []; 
             }
          }
         }
