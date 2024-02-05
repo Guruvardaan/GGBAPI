@@ -80,11 +80,14 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
         }
 
         if($this->report === 'gstr2_detail') {
-            $data['b2c_small_invoice'] =Helper::get_b2b_purchase_invoice(null, null, $this->start_date, $this->end_date);
-            $data['nil_reted'] = Helper::get_b2b_purchase_nil_reted_invoice(null, null, $this->start_date, $this->end_date);
+            // $data['b2c_small_invoice'] =Helper::get_b2b_purchase_invoice(null, null, $this->start_date, $this->end_date);
+            // $data['nil_reted'] = Helper::get_b2b_purchase_nil_reted_invoice(null, null, $this->start_date, $this->end_date);
+            // // dd($data);
+            $data = Helper::get_gstr2_report($this->start_date, $this->end_date);
             // dd($data);
             $data = $this->formating_data($data);
-            $data = $this->add_index($data);
+            // dd($data);
+            $this->set_data($data);
             $formattedData = array_map(function ($row) {
                 return array_map(function ($value) {
                     if(gettype($value) === 'string') {
