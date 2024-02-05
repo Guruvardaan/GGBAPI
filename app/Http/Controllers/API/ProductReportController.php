@@ -8,9 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class ProductReportController extends Controller
 {
-   
-
-    public function get_product_report(Request $request)
+       public function get_product_report(Request $request)
     {
         ini_set('max_execution_time', 14000);
         try{
@@ -55,13 +53,14 @@ class ProductReportController extends Controller
                                 'product_master.updated_by',
                                 'product_master.status',
                                 'product_batch.selling_price AS selling_price',
-                                DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END), 2) AS purchase_price'),
-                                DB::raw('ROUND((product_batch.mrp - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)), 2) AS selling_margin_rupees'),
-                                DB::raw('ROUND((CASE WHEN (product_batch.mrp  - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)) != 0 THEN ((product_batch.selling_price - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)) / product_batch.selling_price) * 100 ELSE 0 END), 2) AS selling_margin_percentage'),
+                                'product_batch.purchase_price As purchase_price',
+                                DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END), 2) AS purchase_price_with_gst'),
+                                DB::raw('ROUND((product_batch.selling_price - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)), 2) AS selling_margin_rupees'),
+                                DB::raw('ROUND((CASE WHEN (product_batch.selling_price  - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)) != 0 THEN ((product_batch.selling_price - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)) / product_batch.selling_price) * 100 ELSE 0 END), 2) AS selling_margin_percentage'),
                                 DB::raw('ROUND((product_batch.mrp - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)), 2) AS purchase_margin_rupees'),
                                 DB::raw('ROUND((CASE WHEN product_batch.mrp != 0 THEN ((product_batch.mrp - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END)) / product_batch.mrp) * 100 ELSE 0 END), 2) AS purchase_margin_percentage'),
                                 DB::raw('ROUND(product_batch.mrp - product_batch.selling_price, 2) As discount_amount'),
-                                DB::raw('ROUND((product_batch.mrp - product_batch.selling_price)/100 * product_batch.mrp, 2) As discount_pr'),
+                                DB::raw('ROUND(((product_batch.mrp - product_batch.selling_price)*100) / product_batch.mrp, 2) As discount_pr'),
                             )
                             ->whereIn('product_master.barcode', $product_with_distinct_barcode);
       
