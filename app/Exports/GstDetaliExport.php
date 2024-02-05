@@ -63,14 +63,9 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
     public function array(): array
     {
         if($this->report === 'gstr1_detail') {
-            $b2c_invoice = Helper::get_b2c_invoice(null, null, $this->start_date, $this->end_date);
-            $data['b2c_large_invoice'] = $b2c_invoice['b2c_large_invoice'];
-            $data['b2c_small_invoice'] = $b2c_invoice['b2c_small_invoice'];
-            $data['nil_reted'] = Helper::get_nil_reted_invoice(null, null, $this->start_date, $this->end_date);
-
+            $data = Helper::get_gst_report($this->start_date, $this->end_date);
             $data = $this->formating_data($data);
-            $data = $this->add_index($data);
-            // dd($data);
+            $this->set_data($data);
             $formattedData = array_map(function ($row) {
                 return array_map(function ($value) {
                     if(gettype($value) === 'string') {
@@ -145,9 +140,7 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
     public function formating_data($data)
     {
         $array = [];
-        $invoice_data = [];
-        $fileds = ['b2b', 'b2c_large_Invoice', 'b2c_small_invoice', 'nil_reted' , 'export_invoices', 'tax_liability_on_advance', 'set_off_tax_on_advance_of_prior_period'];
-        $title_fileds = ['b2b' => 'B2B', 'b2c_large_Invoice' => ' B2C (Large) Invoice', 'b2c_small_invoice' => ' B2C (Small) Invoice', 'nil_reted' => 'Nil Reted', 'export_invoices' => 'Export Invoices' , 'tax_liability_on_advance' => 'Tax Liability on Advance', 'set_off_tax_on_advance_of_prior_period' => ' Set/off Tax on Advance of prior period'];
+        // dd($data);
         $total_count = 0.00;
         $total_taxable = 0.00;
         $total_CGST = 0.00;
@@ -156,75 +149,88 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
         $total_cess = 0.00;
         $total_GST = 0.00;
         $total_amount = 0.00;
-        $cat_wise_total = [];
-        foreach($data as $key => $item) {
-         if(in_array($key, $fileds)) {
-            $cat_wise_total[$key] =  !empty($item['total']) ? $item['total'] : 0;
-            foreach($item as $p_key => $products) {
-                if(!empty($products->products)) {
-                    foreach($products->products as $index => $product) {
-                        if($index === 0) {
-                            $result[$index]['sr_no'] = 0;
-                            $result[$index]['desc'] = !empty($products->desc) ? $products->desc : ' ';
-                            $result[$index]['GSTIN'] = !empty($products->GSTIN) ? $products->GSTIN : ' ';
-                            $result[$index]['invoice_date'] = !empty($products->invoice_date) ? $products->invoice_date : ' ';
-                            $result[$index]['invoice_no'] = !empty($products->invoice_no) ? $products->invoice_no : ' ';
-                            $result[$index]['invoice_no'] = !empty($products->invoice_no) ? $products->invoice_no : ' ';
-                            $result[$index]['invoice_value'] = !empty($products->invoice_value) ? $products->invoice_value : ' ';
-                            $result[$index]['local_or_central'] = !empty($products->local_or_central) ? $products->local_or_central : ' ';
-                            $result[$index]['invoice_type'] = !empty($products->invoice_type) ? $products->invoice_type : '';  
-                            $result[$index]['HSN_code'] = !empty($product['HSN_code']) ? $product['HSN_code'] : ' ';
-                            $result[$index]['quantity'] = !empty($product['quantity']) ? $product['quantity'] : 0;
-                            $result[$index]['amount'] = !empty($product['amount']) ? $product['amount'] : 0;
-                            $result[$index]['taxable_amount'] = !empty($product['taxable_amount']) ? $product['taxable_amount'] : 0;
-                            $result[$index]['SGST_pr'] = !empty($product['SGST_pr']) ? $product['SGST_pr'] : 0;
-                            $result[$index]['SGST_amount'] = !empty($product['SGST_amount']) ? $product['SGST_amount'] : 0;
-                            $result[$index]['CGST_pr'] = !empty($product['CGST_pr']) ? $product['CGST_pr'] : 0;
-                            $result[$index]['CGST_amount'] = !empty($product['CGST_amount']) ? $product['CGST_amount'] : 0;
-                            $result[$index]['IGST_pr'] = !empty($product['IGST_pr']) ? $product['IGST_pr'] : 0;
-                            $result[$index]['IGST_amount'] = !empty($product['IGST_amount']) ? $product['IGST_amount'] : 0;
-                            $result[$index]['cess'] = !empty($product['cess']) ? $product['cess'] : 0;
-                            $result[$index]['total_gst'] = !empty($product['total_gst']) ? $product['total_gst'] : 0;
-                            // $result[$index]['category'] = $key;
-                        } else {
-                            $result[$index]['sr_no'] = 0;
-                            $result[$index]['desc'] =  ' ';
-                            $result[$index]['GSTIN'] = ' ';
-                            $result[$index]['invoice_date'] = ' ';
-                            $result[$index]['invoice_no'] = ' ';
-                            $result[$index]['invoice_no'] = ' ';
-                            $result[$index]['invoice_value'] = ' ';
-                            $result[$index]['local_or_central'] = ' ';
-                            $result[$index]['invoice_type'] = ' '; 
-                            $result[$index]['HSN_code'] = !empty($product['HSN_code']) ? $product['HSN_code'] : ' ';
-                            $result[$index]['quantity'] = !empty($product['quantity']) ? $product['quantity'] : 0;
-                            $result[$index]['amount'] = !empty($product['amount']) ? $product['amount'] : 0;
-                            $result[$index]['taxable_amount'] = !empty($product['taxable_amount']) ? $product['taxable_amount'] : 0;
-                            $result[$index]['SGST_pr'] = !empty($product['SGST_pr']) ? $product['SGST_pr'] : 0;
-                            $result[$index]['SGST_amount'] = !empty($product['SGST_amount']) ? $product['SGST_amount'] : 0;
-                            $result[$index]['CGST_pr'] = !empty($product['CGST_pr']) ? $product['CGST_pr'] : 0;
-                            $result[$index]['CGST_amount'] = !empty($product['CGST_amount']) ? $product['CGST_amount'] : 0;
-                            $result[$index]['IGST_pr'] = !empty($product['IGST_pr']) ? $product['IGST_pr'] : 0;
-                            $result[$index]['IGST_amount'] = !empty($product['IGST_amount']) ? $product['IGST_amount'] : 0;
-                            $result[$index]['cess'] = !empty($product['cess']) ? $product['cess'] : 0;
-                            $result[$index]['total_gst'] = !empty($product['total_gst']) ? $product['total_gst'] : 0;
-                            // $result[$index]['category'] = $key;
-                        }
-                        $total_count += $product['quantity'];
-                        $total_taxable += abs($product['taxable_amount']);
-                        $total_CGST += $product['CGST_amount'];
-                        $total_SGST += $product['SGST_amount'];
-                        $total_IGST += $product['IGST_amount'];
-                        $total_cess += $product['cess'];
-                        $total_GST += $product['total_gst'];
-                        $total_amount += $product['amount'];
-                    }
+        $sr = 1;
+        foreach($data as $key => $order) {
+            $array[$sr]['sr'] = $sr;
+            $array[$sr]['desc'] = !empty($order->desc) ? $order->desc : ' ';
+            $array[$sr]['GSTIN'] = !empty($order->GSTIN) ? $order->GSTIN : ' ';
+            $array[$sr]['invoice_date'] = !empty($order->invoice_date) ? $order->invoice_date : ' ';
+            $array[$sr]['invoice_no'] = !empty($order->invoice_no) ? $order->invoice_no : ' ';
+            $array[$sr]['invoice_no'] = !empty($order->invoice_no) ? $order->invoice_no : ' ';
+            $array[$sr]['invoice_value'] = !empty($order->invoice_value) ? $order->invoice_value : ' ';
+            $array[$sr]['local_or_central'] = !empty($order->local_or_central) ? $order->local_or_central : ' ';
+            $array[$sr]['invoice_type'] = !empty($order->invoice_type) ? $order->invoice_type : '';  
+            $array[$sr]['HSN_code'] = '';
+            $array[$sr]['quantity'] = 0;
+            $array[$sr]['amount'] = 0;
+            $array[$sr]['taxable_amount'] = 0;
+            $array[$sr]['SGST_pr'] = 0;
+            $array[$sr]['SGST_amount'] = 0;
+            $array[$sr]['CGST_pr'] = 0;
+            $array[$sr]['CGST_amount'] = 0;
+            $array[$sr]['IGST_pr'] = 0;
+            $array[$sr]['IGST_amount'] = 0;
+            $array[$sr]['cess'] = 0;
+            $array[$sr]['total_gst'] = 0;
+            $amount_total = 0;
+            $taxble_amount_total = 0;
+            $total_quantity = 0;
+            $sgst_total = 0;
+            $cgst_total = 0;
+            $total_gst = 0;
+            $key_sr = $sr;
+            $sr = $sr + 1;
+
+            if(!empty($order->products)) {
+                foreach($order->products as $product) {
+                    // dd($product);
+                    $array[$sr]['sr'] = $sr;
+                    $array[$sr]['desc'] = '';
+                    $array[$sr]['GSTIN'] = '';
+                    $array[$sr]['invoice_date'] = '';
+                    $array[$sr]['invoice_no'] = '';
+                    $array[$sr]['invoice_no'] = '';
+                    $array[$sr]['invoice_value'] = '';
+                    $array[$sr]['local_or_central'] = '';
+                    $array[$sr]['invoice_type'] = '';  
+                    $array[$sr]['HSN_code'] = !empty($product['HSN_code']) ? $product['HSN_code'] : '';
+                    $array[$sr]['quantity'] = $product['quantity'];
+                    $array[$sr]['amount'] = $product['amount'];
+                    $array[$sr]['taxable_amount'] = $product['taxable_amount'];
+                    $array[$sr]['SGST_pr'] = $product['SGST_pr'];
+                    $array[$sr]['SGST_amount'] = $product['SGST_amount'];
+                    $array[$sr]['CGST_pr'] = $product['CGST_pr'];
+                    $array[$sr]['CGST_amount'] = $product['CGST_amount'];
+                    $array[$sr]['IGST_pr'] = $product['IGST_pr'];
+                    $array[$sr]['IGST_amount'] = $product['IGST_amount'];
+                    $array[$sr]['cess'] = $product['cess'];
+                    $array[$sr]['total_gst'] = $product['total_gst'];
+                    $sr = $sr + 1;
+                    $total_quantity = $total_quantity + $product['quantity'];
+                    $amount_total = $amount_total + $product['amount'];
+                    $taxble_amount_total = $taxble_amount_total + $product['taxable_amount'];
+                    $sgst_total = $sgst_total + $product['SGST_amount'];
+                    $cgst_total = $cgst_total + $product['CGST_amount'];
+                    $total_gst = $total_gst + $product['total_gst'];
                 }
-                $array[] = !empty($result) ? $result : []; 
+                $array[$key_sr]['quantity'] = $total_quantity;
+                $array[$key_sr]['amount'] = $amount_total;
+                $array[$key_sr]['taxable_amount'] = $taxble_amount_total;
+                $array[$key_sr]['SGST_amount'] = $sgst_total;
+                $array[$key_sr]['CGST_amount'] = $cgst_total;
+                $array[$key_sr]['total_gst'] = $total_gst;
+
+                $total_count = $total_count + $total_quantity;
+                $total_taxable = $total_taxable + $taxble_amount_total;
+                $total_CGST = $total_CGST + $cgst_total;
+                $total_SGST = $total_SGST + $sgst_total;
+                $total_IGST = 0.00;
+                $total_cess = 0.00;
+                $total_GST = $total_GST + $total_gst;
+                $total_amount = $total_amount + $amount_total;
             }
-         }
         }
-        // dd($result);
+     
         $total = [
             [
                 'Gross Total',
@@ -250,7 +256,9 @@ class GstDetaliExport implements FromArray, WithHeadings, WithStyles, WithColumn
             ]
         ]; 
 
-        $array = $this->spareted_array($array, $total);
+        $array[sizeof($array)] = $total[0];
+        // dd($array[545]);
+        // $array = $this->spareted_array($array, $total);
 
         return $array;
     }

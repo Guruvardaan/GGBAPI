@@ -974,4 +974,83 @@ class Helper
 
         return $filtered_data;
     }
+
+    public static function get_gst_report($start_date, $end_date)
+    {
+        $gst_data = DB::table('customer_order')
+                                   ->leftJoin('users', 'users.id', '=', 'customer_order.idcustomer') 
+                                   ->leftJoin('order_detail', 'order_detail.idcustomer_order', '=', 'customer_order.idcustomer_order')
+                                   ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                                   ->select('users.name as desc', 'customer_order.created_at as invoice_date', 'customer_order.idcustomer_order as invoice_no', 'customer_order.total_price as invoice_value');
+                                 
+        //
+        $gst_report_data = $gst_data->get();                     
+        $total_quantity = 0.00;
+        $total_amount = 0.00;
+        $total_taxable_amount = 0.00;
+        $total_sgst = 0.00;
+        $total_cgst = 0.00;
+        $total_igst = 0.00;
+        $total_cess = 0.00;
+        $total_gst = 0.00;
+        foreach($gst_report_data as $order)
+        {
+            $date = Carbon::parse($order->invoice_date);
+            $order->invoice_date = $date->format('d-M-y');
+            $order->desc = !empty($order->desc) ? $order->desc : 'Cash Sales and Purchase';
+            $order->local_or_central = 'Local';
+            $order->invoice_type = 'Inventory';
+            $order->GSTIN = '';
+            $products = self::get_order_detail_gst_report($order->invoice_no);
+            $product_data = [];
+            foreach($products as $key => $product){
+                $product_data[$key]['HSN_code'] = $product->HSN_code;
+                $product_data[$key]['quantity'] = $product->quantity;
+                $product_data[$key]['amount'] = $product->amount;
+                $sgst_amount = !empty($product->SGST) ? ($product->amount * $product->SGST)/100 : 0;
+                $cgst_amount = !empty($product->CGST) ? ($product->amount * $product->CGST)/100 : 0;
+                $taxable_amount = $product->amount - $cgst_amount - $sgst_amount;
+                $product_data[$key]['taxable_amount'] = round($taxable_amount, 2);
+                $product_data[$key]['SGST_pr'] = $product->SGST;
+                $product_data[$key]['SGST_amount'] = round($sgst_amount, 2);
+                $product_data[$key]['CGST_pr'] = $product->CGST;
+                $product_data[$key]['CGST_amount'] = round($cgst_amount, 2);
+                $product_data[$key]['IGST_pr'] = 0.00;
+                $product_data[$key]['IGST_amount'] = 0.00;
+                $product_data[$key]['cess'] = 0.00;
+                $product_data[$key]['total_gst'] = round($sgst_amount + $sgst_amount, 2);
+                $total_quantity += $product->quantity;
+                $total_amount += $product->amount;
+                $total_taxable_amount += $taxable_amount;
+                $total_sgst += $sgst_amount;
+                $total_cgst += $cgst_amount;
+                $total_gst += $sgst_amount + $sgst_amount;
+            }
+            $order->products = $product_data;
+        }    
+        $total = [
+            'total_quantity' => round($total_quantity, 2),
+            'total_amount' => round($total_amount, 2),
+            'total_taxable_amount' => round($total_taxable_amount, 2),
+            'total_sgst' => round($total_sgst, 2),
+            'total_cgst' => round($total_cgst, 2),
+            'total_igst' => round($total_igst, 2),
+            'total_cess' => round($total_cess, 2),
+            'total_gst' => round($total_gst, 2),
+        ];
+        if(!empty($gst_report_data->toArray())) {
+            $gst_report_data['total'] = $total;
+        }
+        return $gst_report_data;
+    }
+
+    public static function get_order_detail_gst_report($id)
+    {
+        $data = DB::table('order_detail')
+                        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                        ->select('product_master.hsn as HSN_code', 'order_detail.quantity', 'order_detail.total_price as amount', 'product_master.sgst as SGST', 'product_master.cgst as CGST')
+                        ->where('order_detail.idcustomer_order', $id);
+        $order_detail = $data->get();           
+        return $order_detail;                 
+    }
 }
