@@ -16,7 +16,11 @@ class ProductReportController extends Controller
             $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
             $limit = !empty($_GET['rows']) ? $_GET['rows'] : 10;
             $skip = !empty($_GET['first']) ?$_GET['first'] : 0;
-
+            $additional_filter = !empty($_GET['additional_filter']) ?$_GET['additional_filter'] : null;
+            $margin_type = !empty($_GET['margin_type']) ?$_GET['margin_type'] : null;
+            $exact = !empty($_GET['exact']) ?$_GET['exact'] : 0;
+            $filter_filed_1 = !empty($_GET['filter_filed_1']) ?$_GET['filter_filed_1'] : null;
+            $filter_filed_2 = !empty($_GET['filter_filed_2']) ?$_GET['filter_filed_2'] : null;
             $product_with_distinct_barcode = $this->get_product_with_distinct_barcode();
 
             $productmaster = DB::table('product_master')
@@ -85,6 +89,59 @@ class ProductReportController extends Controller
                 $productmaster->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
             }
 
+            if(!empty($additional_filter) && $additional_filter === 'purchase_margin') {
+                if(!empty($margin_type) && $margin_type === 'without_tax') {
+                    if(!empty($exact)) {
+                        $productmaster->where(DB::raw('ROUND(((product_batch.selling_price - product_batch.purchase_price)/product_batch.selling_price) * 100, 2)'), $filter_filed_1);
+                    } else {
+                        $productmaster->whereBetween(DB::raw('ROUND(((product_batch.selling_price - product_batch.purchase_price)/product_batch.selling_price) * 100, 2)'), [$filter_filed_1, $filter_filed_2]);
+                    }
+
+                } 
+                if(!empty($margin_type) && $margin_type === 'with_tax') {
+                    if(!empty($exact)) {
+                        $productmaster->where(DB::raw('ROUND((((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.selling_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.selling_price END) - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END))/(CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.selling_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.selling_price END)) * 100, 2)'), $filter_filed_1);
+                    } else {
+                        $productmaster->whereBetween(DB::raw('ROUND((((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.selling_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.selling_price END) - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END))/(CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.selling_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.selling_price END)) * 100, 2)'), [$filter_filed_1, $filter_filed_2]);
+                    }
+                } 
+            }
+
+            if(!empty($additional_filter) && $additional_filter === 'profit_margin') {
+                if(!empty($margin_type) && $margin_type === 'without_tax') {
+                    if(!empty($exact)) {
+                        $productmaster->where(DB::raw('ROUND(((product_batch.mrp - product_batch.purchase_price)/product_batch.mrp) * 100, 2)'), $filter_filed_1);
+                    } else {
+                        $productmaster->whereBetween(DB::raw('ROUND(((product_batch.mrp - product_batch.purchase_price)/product_batch.mrp) * 100, 2)'), [$filter_filed_1, $filter_filed_2]);
+                    }
+
+                } 
+                if(!empty($margin_type) && $margin_type === 'with_tax') {
+                    if(!empty($exact)) {
+                        $productmaster->where(DB::raw('ROUND(((product_batch.mrp - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END))/product_batch.mrp) * 100, 2)'), $filter_filed_1);
+                    } else {
+                        $productmaster->whereBetween(DB::raw('ROUND(((product_batch.mrp - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END))/product_batch.mrp) * 100, 2)'), [$filter_filed_1, $filter_filed_2]);
+                    }
+                } 
+            }
+
+            if(!empty($additional_filter) && $additional_filter === 'discount_margin') {
+                if(!empty($margin_type) && $margin_type === 'without_tax') {
+                    if(!empty($exact)) {
+                        $productmaster->where(DB::raw('ROUND(((product_batch.mrp - product_batch.selling_price)/product_batch.mrp) * 100, 2)'), $filter_filed_1);
+                    } else {
+                        $productmaster->whereBetween(DB::raw('ROUND(((product_batch.mrp - product_batch.selling_price)/product_batch.mrp) * 100, 2)'), [$filter_filed_1, $filter_filed_2]);
+                    }
+
+                } 
+                if(!empty($margin_type) && $margin_type === 'with_tax') {
+                    if(!empty($exact)) {
+                        $productmaster->where(DB::raw('ROUND(((product_batch.mrp - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END))/product_batch.mrp) * 100, 2)'), $filter_filed_1);
+                    } else {
+                        $productmaster->whereBetween(DB::raw('ROUND(((product_batch.mrp - (CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (product_batch.purchase_price + (product_batch.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE product_batch.purchase_price END))/product_batch.mrp) * 100, 2)'), [$filter_filed_1, $filter_filed_2]);
+                    }
+                } 
+            }
 
             $totalRecords = $productmaster->count();
             $limit = abs($limit - $skip);
@@ -185,26 +242,28 @@ class ProductReportController extends Controller
                 $purchase_cost_with_tax = $purchase_cost_with_tax + $product->purchase_price_with_gst;
             }
 
+            // dd(($purchase_margin_with_tax/100) * $purchase_margin_with_tax);
+
             $data = [
                 'total_product' => $total_product,
-                'avg_purchase_margin_with_tax' => round($purchase_margin_with_tax/$total_product, 2),
-                'avg_purchase_margin_without_tax' => round($purchase_margin_without_tax/$total_product, 2),
-                'avg_profit_margin_with_tax' => round($profit_margin_with_tax/$total_product, 2),
-                'avg_profit_margin_without_tax' => round($profit_margin_without_tax/$total_product, 2),
-                'avg_discount_margin_with_tax' => round($discount_margin_with_tax/$total_product, 2),
-                'avg_discount_margin_without_tax' => round($discount_margin_without_tax/$total_product, 2),
+                'avg_purchase_margin_with_tax' => round($purchase_margin_with_tax/$total_product, 4),
+                'avg_purchase_margin_without_tax' => round($purchase_margin_without_tax/$total_product, 4),
+                'avg_profit_margin_with_tax' => round($profit_margin_with_tax/$total_product, 4),
+                'avg_profit_margin_without_tax' => round($profit_margin_without_tax/$total_product, 4),
+                'avg_discount_margin_with_tax' => round($discount_margin_with_tax/$total_product, 4),
+                'avg_discount_margin_without_tax' => round($discount_margin_without_tax/$total_product, 4),
                 
-                'avg_purchase_margin_with_tax_pr' => round($purchase_margin_with_tax/$total_product, 2) * 100,
-                'avg_purchase_margin_without_tax_pr' => round($purchase_margin_without_tax/$total_product, 2) * 100,
-                'avg_profit_margin_with_tax_pr' => round($profit_margin_with_tax/$total_product, 2) * 100,
-                'avg_profit_margin_without_tax_pr' => round($profit_margin_without_tax/$total_product, 2) * 100,
-                'avg_discount_margin_with_tax_pr' => round($discount_margin_with_tax/$total_product, 2) * 100,
-                'avg_discount_margin_without_tax_pr' => round($discount_margin_without_tax/$total_product, 2) * 100,
+                'avg_purchase_margin_with_tax_pr' => round((($purchase_margin_with_tax/$total_product)/100) *  $purchase_margin_with_tax, 2),
+                'avg_purchase_margin_without_tax_pr' => round(($purchase_margin_without_tax/$total_product/100) * $purchase_margin_without_tax, 2),
+                'avg_profit_margin_with_tax_pr' => round((($profit_margin_with_tax/$total_product)/100) * $profit_margin_with_tax, 2),
+                'avg_profit_margin_without_tax_pr' => round((($profit_margin_without_tax/$total_product)/100) * $profit_margin_without_tax, 2),
+                'avg_discount_margin_with_tax_pr' => round((($discount_margin_with_tax/$total_product)/100) * $discount_margin_with_tax, 2),
+                'avg_discount_margin_without_tax_pr' => round((($discount_margin_without_tax/$total_product)/100) * $discount_margin_without_tax, 2),
                 
-                'avg_selling_cost_without_tax' => round($selling_cost_without_tax/$total_product, 2),
-                'avg_selling_cost_with_tax' => round($selling_cost_with_tax/$total_product, 2),
-                'avg_purchase_cost_without_tax' => round($purchase_cost_without_tax/$total_product, 2),
-                'avg_purchase_cost_with_tax' => round($purchase_cost_with_tax/$total_product, 2),
+                'avg_selling_cost_without_tax' => round($selling_cost_without_tax/$total_product, 4),
+                'avg_selling_cost_with_tax' => round($selling_cost_with_tax/$total_product, 4),
+                'avg_purchase_cost_without_tax' => round($purchase_cost_without_tax/$total_product, 4),
+                'avg_purchase_cost_with_tax' => round($purchase_cost_with_tax/$total_product, 4),
             ];
             
             return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);
