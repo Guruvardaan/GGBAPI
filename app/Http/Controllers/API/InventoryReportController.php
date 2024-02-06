@@ -64,6 +64,8 @@ class InventoryReportController extends Controller
                                 'inventory.quantity',
                                 'inventory_threshold.threshold_quantity'
                             )
+                            ->where('inventory.selling_price','<>', 0)
+                            ->where('inventory.purchase_price','<>', 0)
                             ->whereIn('product_master.barcode', $product_with_distinct_barcode);
         
         //
@@ -318,7 +320,7 @@ class InventoryReportController extends Controller
         }
     
         if($graph_type === 'brands') {
-            $inventories_data->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
+            $inventories_data->rightJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
             $inventories_data->select('product_master.idbrand','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
             $inventories_data->groupBy('product_master.idbrand','product_master.idproduct_master');
         }
@@ -577,7 +579,7 @@ class InventoryReportController extends Controller
 
         if(!empty($request->field) && $request->field =="brand"){
             $inventories_data->where('brands.name', 'like', $request->searchTerm . '%');
-       }
+        }
         if(!empty($request->field) && $request->field=="category"){
             $inventories_data->where('category.name', 'like', $request->searchTerm . '%');
        }
