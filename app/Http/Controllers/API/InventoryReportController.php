@@ -25,26 +25,56 @@ class InventoryReportController extends Controller
                             ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
                             ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
                             ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idproduct_master', '=', 'product_master.idproduct_master')
-                            ->leftJoin('product_batch', 'product_batch.idproduct_master', '=', 'inventory.idproduct_master')
+                            ->leftJoin('inventory_threshold', 'inventory_threshold.idproduct_master', '=', 'inventory.idproduct_master')
                             ->select(
-                                'inventory.idstore_warehouse', 
                                 'product_master.idproduct_master', 
                                 'product_master.name As product_name',
                                 'product_master.barcode',
-                                'vendor_purchases_detail.hsn',
+                                'product_master.hsn',
                                 'brands.name As brand_name',
                                 'category.name As category_name',
                                 'sub_category.name As sub_category_name',
                                 'vendor_purchases_detail.expiry',
-                                'inventory.quantity As total_quantity',
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price'),
-                                'inventory.selling_price',
                                 'inventory.mrp',
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity ,2) As purchase_cost'),
-                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As sales_cost')
+                                'inventory.selling_price',
+                                'inventory.purchase_price',
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price + (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_with_gst'),
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price_with_gst'),
+                                'inventory.quantity As total_quantity_left',
+                                'inventory_threshold.threshold_quantity',
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity ,2) As purchase_cost_with_gst'),
+                                DB::raw('Round(inventory.purchase_price * inventory.quantity ,2) As purchase_cost_without_gst'),
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity, 2) As ratai_cost_with_gst'),
+                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As ratai_cost_without_gst')
+                            )
+                            ->groupBy(
+                                'product_master.idproduct_master', 
+                                'product_master.name',
+                                'product_master.cgst',
+                                'product_master.sgst',
+                                'product_master.barcode',
+                                'product_master.hsn',
+                                'brands.name',
+                                'category.name',
+                                'sub_category.name',
+                                'vendor_purchases_detail.expiry',
+                                'inventory.mrp',
+                                'inventory.selling_price',
+                                'inventory.purchase_price',
+                                'inventory.quantity',
+                                'inventory_threshold.threshold_quantity'
                             )
                             ->whereIn('product_master.barcode', $product_with_distinct_barcode);
-                   
+        
+        //
+        if(!empty($_GET['type']) && $_GET['type']=="critical_products"){
+            $inventories_data->where('inventory.quantity', '<=', 10);
+            $total->where('inventory.quantity', '<=', 10);
+        }
+        if(!empty($_GET['type']) && $_GET['type']=="replenishment_products"){
+            $inventories_data->where('inventory.quantity', 0);
+            $total->where('inventory.quantity', 0);
+        }                            
         if(!empty($_GET['field']) && $_GET['field']=="brand"){
              $inventories_data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
              $total->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')->where('brands.name', 'like', $_GET['searchTerm'] . '%');
@@ -68,6 +98,10 @@ class InventoryReportController extends Controller
             $total->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
         }
         
+        if(!empty($_GET['field']) && $_GET['field']=="hsn"){
+            $inventories_data->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
+            $total->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
+        }
         
         if(!empty($_GET['idstore_warehouse'])) {
             $inventories_data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
@@ -89,56 +123,103 @@ class InventoryReportController extends Controller
     {
         ini_set('max_execution_time', 14000);
         $product_with_distinct_barcode = $this->get_product_with_distinct_barcode();
-        $total_product = DB::table('inventory')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')->select(DB::raw('DISTINCT(inventory.idproduct_master)'))->whereIn('product_master.barcode', $product_with_distinct_barcode)->count();
+        $total = DB::table('inventory')->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')->select('product_master.idproduct_master');
         $inventories_data = DB::table('inventory')
                             ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'inventory.idproduct_master')
-                            ->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')
-                            ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
-                            ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                            // ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idproduct_master', '=', 'product_master.idproduct_master')
+                            // ->leftJoin('inventory_threshold', 'inventory_threshold.idproduct_master', '=', 'inventory.idproduct_master')
                             ->select(
-                                'inventory.quantity As total_quantity',
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity ,2) As purchase_cost'),
-                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As sales_cost')
+                                'product_master.idproduct_master', 
+                                'inventory.selling_price',
+                                'inventory.purchase_price',
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price + (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_with_gst'),
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price_with_gst'),
+                                'inventory.quantity As total_quantity_left',
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity ,2) As purchase_cost_with_gst'),
+                                DB::raw('Round(inventory.purchase_price * inventory.quantity ,2) As purchase_cost_without_gst'),
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity, 2) As ratai_cost_with_gst'),
+                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As ratai_cost_without_gst')
+                            )
+                            ->groupBy(
+                                'product_master.cgst',
+                                'product_master.sgst',
+                                'product_master.idproduct_master', 
+                                'inventory.selling_price',
+                                'inventory.purchase_price',
+                                'inventory.quantity',
                             )
                             ->whereIn('product_master.barcode', $product_with_distinct_barcode);
+        
         //
+        if(!empty($_GET['type']) && $_GET['type']=="critical_products"){
+            $inventories_data->where('inventory.quantity', '<=', 10);
+            $total->where('inventory.quantity', '<=', 10);
+        }
+        if(!empty($_GET['type']) && $_GET['type']=="replenishment_products"){
+            $inventories_data->where('inventory.quantity', 0);
+            $total->where('inventory.quantity', 0);
+        }                            
         if(!empty($_GET['field']) && $_GET['field']=="brand"){
-            $inventories_data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
-       }
-        if(!empty($_GET['field']) && $_GET['field']=="category"){
-            $inventories_data->where('category.name', 'like', $_GET['searchTerm'] . '%');
-       }
-        if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
-            $inventories_data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
-       }
-        if(!empty($_GET['field']) && $_GET['field']=="barcode"){
-            $barcode=$_GET['searchTerm'];
-           $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
-       }
+             $inventories_data->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand');
+             $inventories_data->where('brands.name', 'like', $_GET['searchTerm'] . '%');
+             $total->leftJoin('brands', 'product_master.idbrand', '=', 'brands.idbrand')->where('brands.name', 'like', $_GET['searchTerm'] . '%');
+        }
+         if(!empty($_GET['field']) && $_GET['field']=="category"){
+             $inventories_data->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory');
+             $inventories_data->where('category.name', 'like', $_GET['searchTerm'] . '%');
+             $total->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')->where('category.name', 'like', $_GET['searchTerm'] . '%');
+        }
+         if(!empty($_GET['field']) && $_GET['field']=="sub_category"){
+            $inventories_data->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category');
+             $inventories_data->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
+             $total->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')->where('sub_category.name', 'like', $_GET['searchTerm'] . '%');
+        }
+         if(!empty($_GET['field']) && $_GET['field']=="barcode"){
+             $barcode=$_GET['searchTerm'];
+            $inventories_data->where('product_master.barcode', 'like', $barcode . '%');
+            $total->where('product_master.barcode', 'like', $barcode . '%');
+        }
 
-       if(!empty($_GET['field']) && $_GET['field']=="product"){
-           $inventories_data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
-       }
-       
-       
-       if(!empty($_GET['idstore_warehouse'])) {
-           $inventories_data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
-       }
+        if(!empty($_GET['field']) && $_GET['field']=="product"){
+            $inventories_data->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+            $total->where('product_master.name', 'like', $_GET['searchTerm'] . '%');
+        }
+        
+        if(!empty($_GET['field']) && $_GET['field']=="hsn"){
+            $inventories_data->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
+            $total->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
+        }
+        
+        if(!empty($_GET['idstore_warehouse'])) {
+            $inventories_data->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+            $total->where('inventory.idstore_warehouse', $_GET['idstore_warehouse']);
+        }       
 
+        if(!empty($start_date) &&  !empty($end_date)) {
+            $inventories_data->whereBetween('inventory.created_at',[$start_date, $end_date]);
+        }
+
+        $totalRecords = $total->count();
         $inventories = $inventories_data->get();
-        $total_stock = 0;
-        $toal_sales_cost = 0;
-        $total_purchse_cost = 0;
+        $total_quantity = 0;
+        $total_inventory_cost_with_tax = 0;
+        $total_inventory_cost_without_tax = 0;
+        $total_ratail_cost_with_tax = 0;
+        $total_ratail_cost_without_tax = 0;
         foreach($inventories as $inventory) {
-            $total_stock = $total_stock + $inventory->total_quantity;
-            $toal_sales_cost = $toal_sales_cost + $inventory->sales_cost;
-            $total_purchse_cost = $total_purchse_cost + $inventory->purchase_cost;
+            $total_quantity = $total_quantity + $inventory->total_quantity_left;
+            $total_inventory_cost_with_tax = $total_inventory_cost_with_tax + $inventory->purchase_cost_with_gst;
+            $total_inventory_cost_without_tax = $total_inventory_cost_without_tax + $inventory->purchase_cost_without_gst;
+            $total_ratail_cost_with_tax = $total_ratail_cost_with_tax + $inventory->ratai_cost_with_gst;
+            $total_ratail_cost_without_tax = $total_ratail_cost_without_tax + $inventory->ratai_cost_without_gst;
         }
         $data = [
-            'total_product' => $total_product,
-            'total_stock' => $total_stock,
-            'toal_sales_cost' => round($toal_sales_cost, 2),
-            'total_purchse_cost' => round($total_purchse_cost, 2),
+            'total_artical' => $totalRecords,
+            'total_quantity' => $total_quantity,
+            'total_inventory_cost_with_tax' => round($total_inventory_cost_with_tax, 2),
+            'total_inventory_cost_without_tax' => round($total_inventory_cost_without_tax, 2),
+            'total_ratail_cost_with_tax' => round($total_ratail_cost_with_tax, 2),
+            'total_ratail_cost_without_tax' => round($total_ratail_cost_without_tax, 2),
         ];
         
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, ], 200);
