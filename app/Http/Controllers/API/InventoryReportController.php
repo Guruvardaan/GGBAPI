@@ -360,6 +360,10 @@ class InventoryReportController extends Controller
            $inventories_data->where('product_master.name', 'like', $request->searchTerm . '%');
        }
 
+       if(!empty($_GET['field']) && $_GET['field']=="hsn"){
+         $inventories_data->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
+        }
+
        if(!empty($store_id)) {
            $inventories_data->where('inventory.idstore_warehouse', $store_id);
        }
@@ -542,13 +546,10 @@ class InventoryReportController extends Controller
 
     public function expried_and_expiring_state()
     {
-        // dd(1);
         $store_id = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
         $graph_type = !empty($_GET['graph_type']) ? $_GET['graph_type'] : null;
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
-        // $limit = !empty($_GET['rows']) ? $_GET['rows'] : 50;
-        // $skip = !empty($_GET['first']) ? $_GET['first'] : 0;
     
         $inventories_data = DB::table('product_master')
                             ->leftJoin('inventory', 'inventory.idproduct_master', '=', 'product_master.idproduct_master');
@@ -558,23 +559,27 @@ class InventoryReportController extends Controller
         }
     
         if($graph_type === 'brands') {
-            $inventories_data->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
-            $inventories_data->select('product_master.idproduct_master');
+            $inventories_data->rightJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand');
+            $inventories_data->select('product_master.idbrand','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
+            $inventories_data->groupBy('product_master.idbrand','product_master.idproduct_master');
         }
 
         if($graph_type === 'category') {
             $inventories_data->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory');
-            $inventories_data->select('product_master.idproduct_master');
+            $inventories_data->select('product_master.idcategory','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
+            $inventories_data->groupBy('product_master.idcategory','product_master.idproduct_master');
         }
 
         if($graph_type === 'sub_category') {
             $inventories_data->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category');
-            $inventories_data->select('product_master.idproduct_master');
+            $inventories_data->select('product_master.idsub_category','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
+            $inventories_data->groupBy('product_master.idsub_category','product_master.idproduct_master');
         }
 
         if($graph_type === 'sub_sub_category') {
             $inventories_data->leftJoin('sub_sub_category', 'sub_sub_category.idsub_sub_category', '=', 'product_master.idsub_sub_category');
-            $inventories_data->select('product_master.idproduct_master');
+            $inventories_data->select('product_master.idsub_sub_category','product_master.idproduct_master', DB::raw('sum(inventory.quantity) as total_quantity'));
+            $inventories_data->groupBy('product_master.idsub_sub_category','product_master.idproduct_master');
         }
 
         if(!empty($request->field) && $request->field =="brand"){
@@ -594,31 +599,47 @@ class InventoryReportController extends Controller
            $inventories_data->where('product_master.name', 'like', $request->searchTerm . '%');
        }
 
+       if(!empty($_GET['field']) && $_GET['field']=="hsn"){
+            $inventories_data->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
+            $total->where('product_master.hsn', 'like', $_GET['searchTerm'] . '%');
+       }
+
        if(!empty($store_id)) {
            $inventories_data->where('inventory.idstore_warehouse', $store_id);
        }
         $inventories = $inventories_data->get();
-        $total_expried_amount = 0;
-        $total_xpiring_in_30_days_amount = 0;
-        $total_not_expired_amount = 0;
-        
-        foreach($inventories as $inventory) {
-            $expired_data = $this->get_expired_product($inventory->idproduct_master);
-            $expiring_data = $this->get_expiring_in_30days($inventory->idproduct_master);
-            $not_expired = $this->get_not_expired_product($inventory->idproduct_master);
-            if(!empty($expired_data)) {
-                $total_expried_amount += $expired_data->quantity * $expired_data->mrp;
-            }
-            if(!empty($expiring_data)) {
-                $total_xpiring_in_30_days_amount += $expiring_data->quantity * $expiring_data->mrp;
-            }
-            if(!empty($not_expired)) {
-                $total_not_expired_amount = $not_expired->quantity * $not_expired->mrp;
-            }
-        }
 
+        $productIds = $inventories->pluck('idproduct_master')->unique()->toArray();
+
+        $expiredData = DB::table('vendor_purchases_detail')
+                       ->select(DB::raw('sum(quantity) As total_expried_quantity'), DB::raw('sum(quantity * mrp) As total_not_expired_amount'))
+                       ->whereIn('idproduct_master', $productIds)
+                       ->where('expiry', '<', now()->toDateString())->first();
+        
+        $notExpiredData = DB::table('vendor_purchases_detail')
+                          ->select(DB::raw('sum(quantity) As total_not_expried_quantity'), DB::raw('sum(quantity * mrp) As total_not_expried_amount'))
+                          ->whereIn('idproduct_master', $productIds)
+                          ->where('expiry', '>', now()->toDateString())->first();   
+        
+        $expiringData = DB::table('vendor_purchases_detail')
+                       ->select(DB::raw('sum(quantity) As total_expiring_in_30_days_quantity'), DB::raw('sum(quantity * mrp) As total_expiring_in_30_days_amount'))
+                       ->whereIn('idproduct_master', $productIds)
+                       ->where('expiry', '>', now()->toDateString())
+                       ->where('expiry', '<', now()->addDays(30))->first();                             
+                      
+
+        $total_expried_amount = !empty($expiredData->total_not_expired_amount) ? $expiredData->total_not_expired_amount : 0;
+        $total_expiring_in_30_days_amount = !empty($expiringData->total_expiring_in_30_days_amount) ? $expiringData->total_expiring_in_30_days_amount : 0;
+        $total_not_expired_amount = !empty($notExpiredData->total_not_expried_amount) ? $notExpiredData->total_not_expried_amount : 0;
+        $total_expried_quantity = !empty($expiredData->total_expried_quantity) ? $expiredData->total_expried_quantity : 0;
+        $total_expiring_in_30_days_quantity = !empty($expiringData->total_expiring_in_30_days_quantity) ? $expiringData->total_expiring_in_30_days_quantity : 0;;
+        $total_not_expried_quantity = !empty($notExpiredData->total_not_expried_quantity) ? $notExpiredData->total_not_expried_quantity : 0;;
+
+        $data['total_expried_quantity'] = $total_expried_quantity;
+        $data['total_expiring_in_30_days_quantity'] = $total_expiring_in_30_days_quantity;
+        $data['total_not_expried_quantity'] = $total_not_expried_quantity;
         $data['total_expried_amount'] = $total_expried_amount;
-        $data['total_xpiring_in_30_days_amount'] = $total_xpiring_in_30_days_amount;
+        $data['total_expiring_in_30_days_amount'] = $total_expiring_in_30_days_amount;
         $data['total_not_expired_amount'] = $total_not_expired_amount;
 
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data], 200);
