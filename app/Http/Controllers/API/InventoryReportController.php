@@ -303,7 +303,7 @@ class InventoryReportController extends Controller
 
     public function expried_and_expiring_inventory(Request $request)
     {
-        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        $store_id = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
         $graph_type = !empty($_GET['graph_type']) ? $_GET['graph_type'] : null;
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
@@ -541,7 +541,7 @@ class InventoryReportController extends Controller
     public function expried_and_expiring_state()
     {
         // dd(1);
-        $store_id = !empty($_GET['store_id']) ? $_GET['store_id'] : null;
+        $store_id = !empty($_GET['idstore_warehouse']) ? $_GET['idstore_warehouse'] : null;
         $graph_type = !empty($_GET['graph_type']) ? $_GET['graph_type'] : null;
         $start_date =  !empty($_GET['start_date']) ? $_GET['start_date'] : null;
         $end_date = !empty($_GET['end_date'])? $_GET['end_date'] :  null;
