@@ -36,16 +36,17 @@ class InventoryReportController extends Controller
                                 'sub_category.name As sub_category_name',
                                 'vendor_purchases_detail.expiry',
                                 'inventory.mrp',
-                                'inventory.selling_price',
-                                'inventory.purchase_price',
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price + (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_with_gst'),
+                                'inventory.purchase_price As purchase_price_without_gst',
                                 DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price_with_gst'),
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price - (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_without_gst'),
+                                'inventory.selling_price As selling_price_with_gst',
                                 'inventory.quantity As total_quantity_left',
                                 'inventory_threshold.threshold_quantity',
                                 DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity ,2) As purchase_cost_with_gst'),
                                 DB::raw('Round(inventory.purchase_price * inventory.quantity ,2) As purchase_cost_without_gst'),
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity, 2) As ratai_cost_with_gst'),
-                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As ratai_cost_without_gst')
+                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As ratai_cost_with_gst'),
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price - (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END) * inventory.quantity, 2) As ratai_cost_without_gst'),
+                                DB::raw('Round(inventory.mrp * inventory.quantity, 2) As mrp_cost'),
                             )
                             ->groupBy(
                                 'product_master.idproduct_master', 
@@ -131,17 +132,14 @@ class InventoryReportController extends Controller
                             // ->leftJoin('vendor_purchases_detail', 'vendor_purchases_detail.idproduct_master', '=', 'product_master.idproduct_master')
                             // ->leftJoin('inventory_threshold', 'inventory_threshold.idproduct_master', '=', 'inventory.idproduct_master')
                             ->select(
-                                'product_master.idproduct_master', 
-                                'inventory.selling_price',
-                                'inventory.purchase_price',
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price + (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_with_gst'),
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price_with_gst'),
+                                'inventory.mrp',
                                 'inventory.quantity As total_quantity_left',
                                 DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity ,2) As purchase_cost_with_gst'),
                                 DB::raw('Round(inventory.purchase_price * inventory.quantity ,2) As purchase_cost_without_gst'),
-                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END) * inventory.quantity, 2) As ratai_cost_with_gst'),
-                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As ratai_cost_without_gst')
-                            )
+                                DB::raw('Round(inventory.selling_price * inventory.quantity, 2) As ratai_cost_with_gst'),
+                                DB::raw('Round((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price - (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END) * inventory.quantity, 2) As ratai_cost_without_gst'),
+                                DB::raw('Round(inventory.mrp * inventory.quantity ,2) As mrp_cost'),                            
+                                )
                             ->groupBy(
                                 'product_master.cgst',
                                 'product_master.sgst',
@@ -149,6 +147,7 @@ class InventoryReportController extends Controller
                                 'inventory.selling_price',
                                 'inventory.purchase_price',
                                 'inventory.quantity',
+                                'inventory.mrp',
                             )
                             ->whereIn('product_master.barcode', $product_with_distinct_barcode);
         
@@ -208,12 +207,14 @@ class InventoryReportController extends Controller
         $total_inventory_cost_without_tax = 0;
         $total_ratail_cost_with_tax = 0;
         $total_ratail_cost_without_tax = 0;
+        $total_mrp_cost = 0;
         foreach($inventories as $inventory) {
             $total_quantity = $total_quantity + $inventory->total_quantity_left;
             $total_inventory_cost_with_tax = $total_inventory_cost_with_tax + $inventory->purchase_cost_with_gst;
             $total_inventory_cost_without_tax = $total_inventory_cost_without_tax + $inventory->purchase_cost_without_gst;
             $total_ratail_cost_with_tax = $total_ratail_cost_with_tax + $inventory->ratai_cost_with_gst;
             $total_ratail_cost_without_tax = $total_ratail_cost_without_tax + $inventory->ratai_cost_without_gst;
+            $total_mrp_cost = $total_mrp_cost + $inventory->mrp_cost;
         }
         $data = [
             'total_artical' => $totalRecords,
@@ -222,6 +223,7 @@ class InventoryReportController extends Controller
             'total_inventory_cost_without_tax' => round($total_inventory_cost_without_tax, 2),
             'total_ratail_cost_with_tax' => round($total_ratail_cost_with_tax, 2),
             'total_ratail_cost_without_tax' => round($total_ratail_cost_without_tax, 2),
+            'total_mrp_cost' => round($total_mrp_cost, 2)
         ];
         
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data, ], 200);
@@ -369,7 +371,7 @@ class InventoryReportController extends Controller
        }
 
         
-        $totalRecords = $inventories_data->paginate(2)->total();
+        $totalRecords = $inventories_data->count();
         $limit = abs($limit - $skip);
         $inventories = $inventories_data->skip($skip)->take($limit)->get();
         $total_expried_amount = 0;
