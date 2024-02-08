@@ -130,9 +130,9 @@ class ProductReportController extends Controller
             foreach($products as $product) {
                 $batch_data = $this->get_product_batch($product->idproduct_master);
                 $product->mrp = $batch_data->mrp;
-                $product->purchase_price = $batch_data->purchase_price;
+                $product->purchase_price_without_gst = $batch_data->purchase_price;
                 $product->purchase_price_with_gst = $batch_data->purchase_price_with_gst;
-                $product->selling_price = $batch_data->selling_price;
+                $product->selling_price_without_gst = $batch_data->selling_price;
                 $product->selling_price_with_gst = $batch_data->selling_price_with_gst;
                 $product->unit_purchase_margin_without_tax_rupees = $batch_data->unit_purchase_margin_without_tax_rupees;
                 $product->unit_purchase_margin_without_tax_pr = $batch_data->unit_purchase_margin_without_tax_pr;
@@ -297,12 +297,12 @@ class ProductReportController extends Controller
 
             $data = [
                 'total_product' => $total_product,
-                'avg_purchase_margin_with_tax' => round($purchase_margin_with_tax/$total_product, 4),
-                'avg_purchase_margin_without_tax' => round($purchase_margin_without_tax/$total_product, 4),
-                'avg_profit_margin_with_tax' => round($profit_margin_with_tax/$total_product, 4),
-                'avg_profit_margin_without_tax' => round($profit_margin_without_tax/$total_product, 4),
-                'avg_discount_margin_with_tax' => round($discount_margin_with_tax/$total_product, 4),
-                'avg_discount_margin_without_tax' => round($discount_margin_without_tax/$total_product, 4),
+                'avg_purchase_margin_with_tax_rupees' => round($purchase_margin_with_tax/$total_product, 4),
+                'avg_purchase_margin_without_tax_rupees' => round($purchase_margin_without_tax/$total_product, 4),
+                'avg_profit_margin_with_tax_rupees' => round($profit_margin_with_tax/$total_product, 4),
+                'avg_profit_margin_without_tax_rupees' => round($profit_margin_without_tax/$total_product, 4),
+                'avg_discount_margin_with_tax_rupees' => round($discount_margin_with_tax/$total_product, 4),
+                'avg_discount_margin_without_tax_rupees' => round($discount_margin_without_tax/$total_product, 4),
                 
                 'avg_purchase_margin_with_tax_pr' => round((($purchase_margin_with_tax_pr/$total_product)), 2),
                 'avg_purchase_margin_without_tax_pr' => round(($purchase_margin_without_tax_pr/$total_product), 2),
