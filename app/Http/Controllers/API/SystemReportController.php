@@ -803,59 +803,73 @@ class SystemReportController extends Controller
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $final_data, 'total' => $totalRecords], 200);                           
     }
 
-    public function get_oreder_details($id, $field = null, $searchTerm = null)
+    public function get_membership($id, $date)
     {
-        $data = DB::table('order_detail')
-                         ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
-                         ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
-                         ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
-                         ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
-                         ->select(
-                            'order_detail.idproduct_master', 
-                            'product_master.name', 
-                            'product_master.barcode', 
-                            'category.name As category_name', 
-                            'sub_category.name As sub_category_name', 
-                            'brands.name As brand_name', 
-                            'order_detail.quantity', 
-                            'order_detail.total_price', 
-                            'order_detail.total_sgst', 
-                            'order_detail.total_cgst', 
-                            'order_detail.discount'
-                         )  
-                         ->where('idcustomer_order', $id);
+        $get_data = DB::table('wallet_transaction')
+                    ->leftJoin('membership_plan', 'membership_plan.idmembership_plan', 'wallet_transaction.idmembership_plan')
+                    ->select('membership_plan.name As membership_type')
+                    ->where('wallet_transaction.idcustomer', $id)
+                    ->where('wallet_transaction.created_at', $date)
+                    ->first();
+        $membership_type = null;
+        if(!empty($get_data)) {
+            if($get_data->membership_type === 'Instant Discount') {
+                $membership_type = 'Instant';
+            }
+            if($get_data->membership_type === 'Wish Basket - Product') {
+                $membership_type = 'Product';
+            }
+            if($get_data->membership_type === 'Wish Basket - Land') {
+                $membership_type = 'Land';
+            }
+            if($get_data->membership_type === 'Wish Basket - CoPartner') {
+                $membership_type = 'CoPartner';
+            }
+        }            
+        return $membership_type;           
+    }
+
+    public function get_detail($id)
+    {
+        $order_detail = DB::table('order_detail')
+                        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
+                        ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
+                        ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
+                        ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
+                        ->leftJoin('inventory', 'inventory.idinventory', 'order_detail.idinventory')
+                        ->select(
+                            'product_master.idproduct_master',
+                            'category.name As category_name',
+                            'sub_category.name as sub_category_name',
+                            'brands.name As brand_name',
+                            'product_master.name',
+                            'product_master.barcode',
+                            'product_master.hsn',
+                            'order_detail.quantity',
+                            'order_detail.discount',
+                            'order_detail.total_price',
+                            'order_detail.unit_mrp',
+                            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price_with_gst'),
+                            'inventory.purchase_price As purchase_price_without_gst',
+                            'inventory.selling_price as selling_price_with_gst',
+                            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price - (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_without_gst'),
+                            'order_detail.total_cgst as total_cgst_amount',
+                            DB::raw('Round((order_detail.total_cgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst ), 2) As total_cgst_pr'),
+                            'order_detail.total_sgst as total_sgst_amount',
+                            DB::raw('Round((order_detail.total_sgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst ), 2) As total_sgst_pr'),
+                        )->where('order_detail.idcustomer_order', $id)
+                        ->get();
         //
-        if(!empty($field) && !empty($searchTerm) && $field !== 'vendor' && $field !== 'bill_no') {
-            if($field === 'product'){
-                $data->where('product_master.name', 'like', $searchTerm . '%');
+        foreach($order_detail as $order) {
+            $profit = $order->unit_mrp - ($order->purchase_price_with_gst + $order->discount);
+            $order->profit = round($profit * $order->quantity, 2);
+            $bill_in_loss = 0;
+            if($profit < 0) {
+                $bill_in_loss = 1;
             }
-
-            if($field === 'barcode'){
-                $data->where('product_master.barcode', 'like', $searchTerm . '%');
-            }
-
-            if($field === 'category'){
-                $data->where('category.name', 'like', $searchTerm . '%');
-            }
-
-            if($field === 'sub_category'){
-                $data->where('sub_category.name', 'like', $searchTerm . '%');
-            }
-
-            if($field === 'brand'){
-                $data->where('brand.name', 'like', $searchTerm . '%');
-            }
-
-            if($field === 'hsn'){
-                $data->where('vendor_purchases_detail.hsn', 'like', $searchTerm . '%');
-            }
-
-            if($field === "expiry"){
-                $data->where('vendor_purchases_detail.expiry', $searchTerm);
-            }
-        }                    
-        $order_details  = $data->get();                                  
-        return $order_details;
+            $order->bill_in_loss = $bill_in_loss;
+        }           
+        return $order_detail;                
     }
 
     public function get_cogs_report(Request $request)
@@ -1299,74 +1313,5 @@ class SystemReportController extends Controller
             'total_selled_quantiy_amount' => round($total_selled_quantiy_amount, 2),
         ];
         return response()->json(["statusCode" => 0, "message" => "Success", "data" => $data,], 200);
-    }
-
-    public function get_membership($id, $date)
-    {
-        $get_data = DB::table('wallet_transaction')
-                    ->leftJoin('membership_plan', 'membership_plan.idmembership_plan', 'wallet_transaction.idmembership_plan')
-                    ->select('membership_plan.name As membership_type')
-                    ->where('wallet_transaction.idcustomer', $id)
-                    ->where('wallet_transaction.created_at', $date)
-                    ->first();
-        $membership_type = null;
-        if(!empty($get_data)) {
-            if($get_data->membership_type === 'Instant Discount') {
-                $membership_type = 'Instant';
-            }
-            if($get_data->membership_type === 'Wish Basket - Product') {
-                $membership_type = 'Product';
-            }
-            if($get_data->membership_type === 'Wish Basket - Land') {
-                $membership_type = 'Land';
-            }
-            if($get_data->membership_type === 'Wish Basket - CoPartner') {
-                $membership_type = 'CoPartner';
-            }
-        }            
-        return $membership_type;           
-    }
-
-    public function get_detail($id)
-    {
-        $order_detail = DB::table('order_detail')
-                        ->leftJoin('product_master', 'product_master.idproduct_master', '=', 'order_detail.idproduct_master')
-                        ->leftJoin('category', 'category.idcategory', '=', 'product_master.idcategory')
-                        ->leftJoin('sub_category', 'sub_category.idsub_category', '=', 'product_master.idsub_category')
-                        ->leftJoin('brands', 'brands.idbrand', '=', 'product_master.idbrand')
-                        ->leftJoin('inventory', 'inventory.idinventory', 'order_detail.idinventory')
-                        ->select(
-                            'product_master.idproduct_master',
-                            'category.name As category_name',
-                            'sub_category.name as sub_category_name',
-                            'brands.name As brand_name',
-                            'product_master.name',
-                            'product_master.barcode',
-                            'product_master.hsn',
-                            'order_detail.quantity',
-                            'order_detail.discount',
-                            'order_detail.total_price',
-                            'order_detail.unit_mrp',
-                            'inventory.purchase_price',
-                            'inventory.selling_price',
-                            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price_with_gst'),
-                            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price + (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_with_gst'),
-                            'order_detail.total_cgst as total_cgst_amount',
-                            DB::raw('Round((order_detail.total_cgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst ), 2) As total_cgst_pr'),
-                            'order_detail.total_sgst as total_sgst_amount',
-                            DB::raw('Round((order_detail.total_sgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst ), 2) As total_sgst_pr'),
-                        )->where('order_detail.idcustomer_order', $id)
-                        ->get();
-        //
-        foreach($order_detail as $order) {
-            $profit = $order->unit_mrp - ($order->purchase_price_with_gst + $order->discount);
-            $order->profit = round($profit * $order->quantity, 2);
-            $bill_in_loss = 0;
-            if($profit < 0) {
-                $bill_in_loss = 1;
-            }
-            $order->bill_in_loss = $bill_in_loss;
-        }           
-        return $order_detail;                
     }
 }
