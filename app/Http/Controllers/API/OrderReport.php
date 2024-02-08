@@ -64,14 +64,14 @@ class OrderReport extends Controller
                                 'users.contact as phone_no',
                                 'store_warehouse.name as store_name',
                                 'customer_order.pay_mode As payment_type',
-                                'customer_order.is_delivery',
+                                'customer_order.is_pos',
                                 'customer_order.total_quantity',
                                 'customer_order.discount_type',
                                 'customer_order.total_discount',
                                 'customer_order.total_cgst as total_cgst_amount',
-                                DB::raw('Round((customer_order.total_cgst * 100)/(customer_order.total_price - customer_order.total_cgst -customer_order.total_sgst ), 2) As total_cgst_pr'),
+                                DB::raw('Round((customer_order.total_cgst * 100)/(customer_order.total_price - customer_order.total_cgst -customer_order.total_sgst )) As total_cgst_pr'),
                                 'customer_order.total_sgst as total_sgst_amount',
-                                DB::raw('Round((customer_order.total_sgst * 100)/(customer_order.total_price - customer_order.total_cgst -customer_order.total_sgst ), 2) As total_sgst_pr'),
+                                DB::raw('Round((customer_order.total_sgst * 100)/(customer_order.total_price - customer_order.total_cgst -customer_order.total_sgst )) As total_sgst_pr'),
                              );
                 
                 if(!empty($_GET['field']) && $_GET['field']=="bill_no"){
@@ -112,7 +112,7 @@ class OrderReport extends Controller
                     $order->igst_amount = 0;
                     $order->membership_type = $this->get_membership($order->idcustomer, $order->bill_date);
                     $order->order_type = '';
-                    $order->delivery_type = (!empty($order->is_delivery)) ? 'Home Delivery' : 'Take Away';
+                    $order->delivery_type = (!empty($order->is_pos)) ? 'Take Away' : 'Home Delivery';
                     $total_mrp = 0;
                     $total_paid_amount = 0;
                     $total_profit = 0;
@@ -221,11 +221,11 @@ class OrderReport extends Controller
                             DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.purchase_price + (inventory.purchase_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.purchase_price END), 2) AS purchase_price_with_gst'),
                             'inventory.purchase_price As purchase_price_without_gst',
                             'inventory.selling_price as selling_price_with_gst',
-                            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN (inventory.selling_price - (inventory.selling_price * (product_master.cgst + product_master.sgst))/100) ELSE inventory.selling_price END), 2) AS selling_price_without_gst'),
+                            DB::raw('ROUND((CASE WHEN product_master.cgst IS NOT NULL AND product_master.sgst IS NOT NULL THEN ((inventory.selling_price / (1 + (product_master.cgst + product_master.sgst)/100))) ELSE inventory.selling_price END), 2) AS selling_price_without_gst'),
                             'order_detail.total_cgst as total_cgst_amount',
-                            DB::raw('Round((order_detail.total_cgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst ), 2) As total_cgst_pr'),
+                            DB::raw('Round((order_detail.total_cgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst )) As total_cgst_pr'),
                             'order_detail.total_sgst as total_sgst_amount',
-                            DB::raw('Round((order_detail.total_sgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst ), 2) As total_sgst_pr'),
+                            DB::raw('Round((order_detail.total_sgst * 100)/(order_detail.total_price - order_detail.total_cgst - order_detail.total_sgst )) As total_sgst_pr'),
                         )->where('order_detail.idcustomer_order', $id)
                         ->get();
         //
