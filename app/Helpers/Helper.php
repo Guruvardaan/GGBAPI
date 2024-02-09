@@ -1007,9 +1007,12 @@ class Helper
                 $product_data[$key]['HSN_code'] = $product->HSN_code;
                 $product_data[$key]['quantity'] = $product->quantity;
                 $product_data[$key]['amount'] = $product->amount;
-                $sgst_amount = !empty($product->SGST) ? ($product->amount * $product->SGST)/100 : 0;
-                $cgst_amount = !empty($product->CGST) ? ($product->amount * $product->CGST)/100 : 0;
-                $taxable_amount = $product->amount - $cgst_amount - $sgst_amount;
+                $sgst = !empty($product->SGST) ? $product->SGST : 0; 
+                $cgst = !empty($product->CGST) ? $product->CGST : 0; 
+                $taxable_amount = (!empty($sgst) && !empty($cgst)) ? $product->amount/(1 + (($sgst + $cgst)/100)) :  $product->amount;
+                $gst = $product->amount - $taxable_amount;
+                $sgst_amount = !empty($gst) ? round($gst/2, 2) : 0;
+                $cgst_amount = !empty($gst) ? round($gst/2, 2) : 0;
                 $product_data[$key]['taxable_amount'] = round($taxable_amount, 2);
                 $product_data[$key]['SGST_pr'] = $product->SGST;
                 $product_data[$key]['SGST_amount'] = round($sgst_amount, 2);
